@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head><title>PageGobbler — Icon Generator</title></head>
+<body style="background: #1a1008; color: #F5E6D0; font-family: -apple-system, sans-serif; padding: 24px;">
+<h1 style="color: #E8A849;">PageGobbler Icon Generator</h1>
+<p>Right-click each canvas and "Save image as" to create PNG icons, or use the download links.</p>
+<div id="icons" style="display: flex; gap: 32px; align-items: flex-end; margin-top: 24px;"></div>
+<script>
+const sizes = [16, 48, 128];
+
+sizes.forEach(size => {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const s = size;
+
+  // Background: warm dark rounded rect
+  const pad = s * 0.04;
+  const r = s * 0.18;
+  ctx.beginPath();
+  roundRect(ctx, pad, pad, s - pad * 2, s - pad * 2, r);
+  const bgGrad = ctx.createLinearGradient(0, 0, s, s);
+  bgGrad.addColorStop(0, '#2e2114');
+  bgGrad.addColorStop(1, '#1a1008');
+  ctx.fillStyle = bgGrad;
+  ctx.fill();
+
+  // Subtle border
+  ctx.lineWidth = Math.max(1, s * 0.015);
+  ctx.strokeStyle = 'rgba(212, 118, 44, 0.4)';
+  ctx.stroke();
+
+  const cx = s * 0.5;
+  const cy = s * 0.52;
+
+  // Tail feathers (fan behind body)
+  const featherSize = s * 0.28;
+  drawFeather(ctx, cx, cy - s * 0.18, -0.6, featherSize, '#C0392B');
+  drawFeather(ctx, cx, cy - s * 0.18, 0.6, featherSize, '#C0392B');
+  drawFeather(ctx, cx, cy - s * 0.2, -0.35, featherSize * 0.95, '#D4762C');
+  drawFeather(ctx, cx, cy - s * 0.2, 0.35, featherSize * 0.95, '#D4762C');
+  drawFeather(ctx, cx, cy - s * 0.22, -0.1, featherSize * 0.85, '#E8A849');
+  drawFeather(ctx, cx, cy - s * 0.22, 0.1, featherSize * 0.85, '#E8A849');
+
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + s * 0.05, s * 0.2, s * 0.24, 0, 0, Math.PI * 2);
+  const bodyGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy + s * 0.05, s * 0.24);
+  bodyGrad.addColorStop(0, '#A0522D');
+  bodyGrad.addColorStop(1, '#8B4513');
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Head
+  const headY = cy - s * 0.15;
+  ctx.beginPath();
+  ctx.arc(cx, headY, s * 0.1, 0, Math.PI * 2);
+  ctx.fillStyle = '#D2691E';
+  ctx.fill();
+
+  // Beak
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.03, headY + s * 0.06);
+  ctx.lineTo(cx, headY + s * 0.1);
+  ctx.lineTo(cx + s * 0.03, headY + s * 0.06);
+  ctx.closePath();
+  ctx.fillStyle = '#E8A849';
+  ctx.fill();
+
+  // Snood
+  if (s >= 48) {
+    ctx.beginPath();
+    ctx.moveTo(cx, headY + s * 0.1);
+    ctx.quadraticCurveTo(cx + s * 0.02, headY + s * 0.15, cx, headY + s * 0.17);
+    ctx.strokeStyle = '#C0392B';
+    ctx.lineWidth = Math.max(1, s * 0.025);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // Eyes
+  if (s >= 32) {
+    const eyeR = Math.max(1, s * 0.02);
+    ctx.beginPath();
+    ctx.arc(cx - s * 0.04, headY - s * 0.01, eyeR, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1008';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.04, headY - s * 0.01, eyeR, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1008';
+    ctx.fill();
+  }
+
+  // Feet
+  if (s >= 32) {
+    ctx.strokeStyle = '#D4762C';
+    ctx.lineWidth = Math.max(1, s * 0.02);
+    ctx.lineCap = 'round';
+    const footY = cy + s * 0.28;
+    [-0.08, 0.08].forEach(xOff => {
+      const fx = cx + s * xOff;
+      [-0.03, 0, 0.03].forEach(toe => {
+        ctx.beginPath();
+        ctx.moveTo(fx, footY);
+        ctx.lineTo(fx + s * toe, footY + s * 0.06);
+        ctx.stroke();
+      });
+    });
+  }
+
+  // Render to page
+  const container = document.getElementById('icons');
+  const wrapper = document.createElement('div');
+  wrapper.style.textAlign = 'center';
+
+  const label = document.createElement('div');
+  label.style.cssText = 'margin-bottom: 8px; font-weight: 600; color: #D4762C;';
+  label.textContent = `icon${size}.png`;
+
+  canvas.style.border = '1px solid #3d2e1a';
+  canvas.style.borderRadius = '8px';
+  canvas.style.imageRendering = size <= 32 ? 'pixelated' : 'auto';
+  const displaySize = Math.max(size * 1.5, 80);
+  canvas.style.width = `${displaySize}px`;
+  canvas.style.height = `${displaySize}px`;
+
+  const link = document.createElement('a');
+  link.download = `icon${size}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.textContent = 'download';
+  link.style.cssText = 'display: block; margin-top: 8px; color: #E8A849; font-size: 13px;';
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(canvas);
+  wrapper.appendChild(link);
+  container.appendChild(wrapper);
+});
+
+function drawFeather(ctx, x, y, angle, length, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.ellipse(0, -length * 0.5, length * 0.25, length * 0.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+}
+</script>
+</body>
+</html>

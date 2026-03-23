@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Background -->
+  <rect width="128" height="128" rx="24" fill="#1a1008"/>
+  <rect x="1" y="1" width="126" height="126" rx="23" stroke="#D4762C" stroke-width="2" stroke-opacity="0.35" fill="none"/>
+
+  <!-- Tail feathers (simple ellipses, no transforms) -->
+  <!-- Outer red feathers -->
+  <ellipse cx="38" cy="32" rx="12" ry="22" fill="#C0392B"/>
+  <ellipse cx="90" cy="32" rx="12" ry="22" fill="#C0392B"/>
+  <!-- Middle orange feathers -->
+  <ellipse cx="46" cy="28" rx="11" ry="22" fill="#D4762C"/>
+  <ellipse cx="82" cy="28" rx="11" ry="22" fill="#D4762C"/>
+  <!-- Inner gold feathers -->
+  <ellipse cx="55" cy="26" rx="10" ry="20" fill="#E8A849"/>
+  <ellipse cx="73" cy="26" rx="10" ry="20" fill="#E8A849"/>
+  <!-- Center gold feather -->
+  <ellipse cx="64" cy="24" rx="9" ry="20" fill="#F0C060"/>
+
+  <!-- Body -->
+  <ellipse cx="64" cy="74" rx="26" ry="30" fill="#8B4513"/>
+  <ellipse cx="64" cy="72" rx="22" ry="26" fill="#A0522D"/>
+
+  <!-- Head -->
+  <circle cx="64" cy="48" r="14" fill="#D2691E"/>
+  <circle cx="64" cy="47" r="12" fill="#CD853F"/>
+
+  <!-- Beak -->
+  <polygon points="60,54 64,62 68,54" fill="#E8A849"/>
+
+  <!-- Snood (red dangly bit) -->
+  <ellipse cx="65" cy="66" rx="2.5" ry="5" fill="#C0392B"/>
+
+  <!-- Eyes -->
+  <circle cx="57" cy="45" r="3.5" fill="#1a1008"/>
+  <circle cx="71" cy="45" r="3.5" fill="#1a1008"/>
+  <circle cx="58" cy="44" r="1.2" fill="#fff"/>
+  <circle cx="72" cy="44" r="1.2" fill="#fff"/>
+
+  <!-- Wattle (bumps on head) -->
+  <circle cx="64" cy="38" r="2" fill="#C0392B" opacity="0.6"/>
+
+  <!-- Feet -->
+  <line x1="54" y1="102" x2="50" y2="114" stroke="#D4762C" stroke-width="3" stroke-linecap="round"/>
+  <line x1="54" y1="102" x2="54" y2="115" stroke="#D4762C" stroke-width="3" stroke-linecap="round"/>
+  <line x1="54" y1="102" x2="58" y2="114" stroke="#D4762C" stroke-width="3" stroke-linecap="round"/>
+  <line x1="74" y1="102" x2="70" y2="114" stroke="#D4762C" stroke-width="3" stroke-linecap="round"/>
+  <line x1="74" y1="102" x2="74" y2="115" stroke="#D4762C" stroke-width="3" stroke-linecap="round"/>
+  <line x1="74" y1="102" x2="78" y2="114" stroke="#D4762C" stroke-width="3" stroke-linecap="round"/>
+</svg>

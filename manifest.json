@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "PageGobbler",
+  "version": "2.0.0",
+  "description": "Gobble up entire web pages — full-page screenshots with smart compression, section splitting, text extraction, and page metadata.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "windows"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "take-screenshot": {
+      "suggested_key": {
+        "default": "Alt+Shift+G"
+      },
+      "description": "Gobble the current page"
+    }
+  }
+}

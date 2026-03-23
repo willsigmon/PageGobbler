@@ -1,0 +1,236 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1008;
+  color: #F5E6D0;
+  font-size: 13px;
+}
+
+.container {
+  padding: 16px;
+}
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo h1 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  background: linear-gradient(135deg, #E8A849 0%, #D4762C 50%, #C0392B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.version {
+  font-size: 10px;
+  color: #9C8A74;
+  background: #2e2114;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid #3d2e1a;
+}
+
+/* Primary Button */
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #D4762C 0%, #C0392B 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(192, 57, 43, 0.25), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #E8A849 0%, #D4762C 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(212, 118, 44, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(212, 118, 44, 0.2);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #3d2e1a, transparent);
+  margin: 14px 0;
+}
+
+/* Settings Toggle */
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  margin-top: 14px;
+  cursor: pointer;
+  color: #9C8A74;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  border-top: 1px solid #2e2114;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.settings-toggle:hover {
+  color: #D4762C;
+}
+
+.chevron {
+  transition: transform 0.2s ease;
+}
+
+.settings-toggle.open .chevron {
+  transform: rotate(180deg);
+}
+
+/* Settings Panel */
+.settings-panel {
+  display: none;
+  padding-top: 10px;
+}
+
+.settings-panel.open {
+  display: block;
+}
+
+.setting-group {
+  margin-bottom: 14px;
+}
+
+.setting-group label {
+  display: block;
+  font-size: 10px;
+  color: #9C8A74;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+}
+
+.setting-group.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 13px;
+  color: #D4C4A8;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.setting-group input[type="number"],
+.setting-group select {
+  width: 100%;
+  padding: 8px 10px;
+  background: #241a0e;
+  border: 1px solid #3d2e1a;
+  border-radius: 8px;
+  color: #F5E6D0;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.setting-group input[type="number"]:focus,
+.setting-group select:focus {
+  outline: none;
+  border-color: #D4762C;
+  box-shadow: 0 0 0 2px rgba(212, 118, 44, 0.15);
+}
+
+.setting-group input[type="checkbox"] {
+  accent-color: #D4762C;
+  width: 16px;
+  height: 16px;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-row input[type="range"] {
+  flex: 1;
+  accent-color: #D4762C;
+}
+
+.range-row span {
+  min-width: 36px;
+  text-align: right;
+  color: #E8A849;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 1-Click Mode */
+.oneclick-group {
+  padding: 10px 12px;
+  background: #241a0e;
+  border: 1px solid #3d2e1a;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.setting-hint {
+  font-size: 11px;
+  color: #9C8A74;
+  margin-top: 6px;
+  padding-left: 24px;
+}
+
+/* Status */
+.status {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #9C8A74;
+  text-align: center;
+  min-height: 16px;
+}
+
+.status.error {
+  color: #C0392B;
+}
+
+.status.success {
+  color: #27ae60;
+}

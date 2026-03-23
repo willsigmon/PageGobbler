@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PageGobbler Viewer Mockup</title>
+  <style>
+    :root {
+      --bg: #120c06; --surface: #1a1008; --surface2: #241a0e; --surface3: #2e2114;
+      --border: #3d2e1a; --border-light: #4d3a24; --text: #F5E6D0; --text-mid: #D4C4A8;
+      --text-dim: #9C8A74; --accent: #D4762C; --accent-light: #E8A849; --accent-deep: #8B4513;
+      --success: #27ae60;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; padding: 14px 28px;
+      background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
+      border-bottom: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-left h1 {
+      font-size: 20px; font-weight: 800; letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #E8A849 0%, #D4762C 50%, #C0392B 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .topbar-actions { display: flex; gap: 8px; }
+    .btn { padding: 9px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: linear-gradient(135deg, #D4762C, #C0392B); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); box-shadow: 0 2px 8px rgba(192,57,43,0.3); }
+    .btn-secondary { background: var(--surface3); color: var(--text-mid); border: 1px solid var(--border); }
+    .status-bar { padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .status-bar.done .status-text { color: var(--success); }
+    .status-text { font-size: 13px; color: var(--success); margin-bottom: 8px; font-weight: 500; }
+    .progress-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #1e8449, var(--success), #2ecc71); border-radius: 2px; }
+    .main { display: flex; flex: 1; }
+    .panel { padding: 24px 28px; overflow-y: auto; }
+    .panel h2 {
+      font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+    }
+    .panel h2::before { content: ''; display: inline-block; width: 3px; height: 14px; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border-radius: 2px; }
+    .panel-images { flex: 3; border-right: 1px solid var(--border); }
+    .panel-data { flex: 2; min-width: 380px; max-width: 520px; }
+    .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+    .section-card-header {
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+      background: linear-gradient(180deg, var(--surface3), var(--surface2)); font-size: 12px; border-bottom: 1px solid var(--border);
+    }
+    .badge { background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .size { color: var(--text-dim); font-size: 11px; margin-left: 8px; }
+    .section-card-actions { display: flex; gap: 6px; }
+    .section-card-actions button { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; }
+    .mock-image { width: 100%; height: 280px; background: linear-gradient(180deg, #1a2332 0%, #0f1923 30%, #162133 60%, #1a2840 100%); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+    .mock-image::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(180deg, #1e3a5f, #162840); }
+    .mock-image::after { content: ''; position: absolute; top: 20px; left: 30px; width: 200px; height: 24px; background: rgba(255,255,255,0.08); border-radius: 4px; }
+    .mock-nav { position: absolute; top: 10px; right: 30px; display: flex; gap: 16px; }
+    .mock-nav span { width: 50px; height: 10px; background: rgba(255,255,255,0.15); border-radius: 3px; display: block; }
+    .mock-content { position: absolute; top: 80px; left: 30px; right: 30px; }
+    .mock-h1 { width: 320px; height: 28px; background: rgba(255,255,255,0.12); border-radius: 4px; margin-bottom: 16px; }
+    .mock-p { height: 10px; background: rgba(255,255,255,0.06); border-radius: 3px; margin-bottom: 8px; }
+    .mock-p.short { width: 70%; }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 18px; gap: 2px; }
+    .tab { background: none; border: none; color: var(--text-dim); padding: 11px 18px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { color: var(--accent-light); border-bottom-color: var(--accent); background: rgba(212,118,44,0.08); }
+    .meta-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+    .meta-label { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; font-weight: 700; }
+    .meta-value { font-size: 13px; color: var(--text); word-break: break-all; }
+    .meta-value a { color: var(--accent-light); text-decoration: none; }
+    .headings-list { list-style: none; padding: 0; }
+    .headings-list li { padding: 3px 0; font-size: 12px; color: var(--text-dim); }
+    .headings-list li.h1 { font-weight: 700; color: var(--accent-light); }
+    .headings-list li.h2 { padding-left: 14px; color: var(--text-mid); }
+    .headings-list li.h3 { padding-left: 28px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar-left">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+          <path d="M16 4 Q10 1 7 6 Q10 6 12 10" fill="#C0392B"/>
+          <path d="M16 4 Q22 1 25 6 Q22 6 20 10" fill="#C0392B"/>
+          <path d="M16 3 Q8 2 6 8 Q10 7 13 10" fill="#D4762C"/>
+          <path d="M16 3 Q24 2 26 8 Q22 7 19 10" fill="#D4762C"/>
+          <path d="M16 2 Q12 3 10 8 Q13 7 15 10" fill="#E8A849"/>
+          <path d="M16 2 Q20 3 22 8 Q19 7 17 10" fill="#E8A849"/>
+          <ellipse cx="16" cy="18" rx="7" ry="8" fill="#8B4513"/>
+          <ellipse cx="16" cy="17" rx="5.5" ry="6" fill="#A0522D"/>
+          <circle cx="16" cy="11" r="3.5" fill="#D2691E"/>
+          <path d="M15 12.5 L16 14 L17 12.5" fill="#E8A849"/>
+          <path d="M16 14 Q16.5 15.5 16 16.5" stroke="#C0392B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+          <circle cx="14.5" cy="10.5" r="0.8" fill="#1a1008"/>
+          <circle cx="17.5" cy="10.5" r="0.8" fill="#1a1008"/>
+        </svg>
+        <h1>PageGobbler</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary">Download ZIP</button>
+        <button class="btn btn-secondary">Copy Page Text</button>
+        <button class="btn btn-secondary">Copy Metadata</button>
+      </div>
+    </header>
+    <div class="status-bar done">
+      <div class="status-text">Done — 2 section(s), total 1.84 MB</div>
+      <div class="progress-track"><div class="progress-fill"></div></div>
+    </div>
+    <div class="main">
+      <div class="panel panel-images">
+        <h2>Captured Sections</h2>
+        <div class="section-card">
+          <div class="section-card-header">
+            <div><span class="badge">Section 1</span><span class="size">2560 x 4096 · 1.12 MB · WEBP @ 82%</span></div>
+            <div class="section-card-actions"><button>Download</button><button>Open</button></div>
+          </div>
+          <div class="mock-image">
+            <div class="mock-nav"><span></span><span></span><span></span><span></span></div>
+            <div class="mock-content">
+              <div class="mock-h1"></div>
+              <div class="mock-p" style="width:90%"></div>
+              <div class="mock-p" style="width:85%"></div>
+              <div class="mock-p short"></div>
+              <div style="margin-top:20px; display:flex; gap:12px;">
+                <div style="width:140px;height:36px;background:rgba(66,133,244,0.3);border-radius:6px;"></div>
+                <div style="width:120px;height:36px;background:rgba(255,255,255,0.06);border-radius:6px;border:1px solid rgba(255,255,255,0.1);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-card-header">
+            <div><span class="badge">Section 2</span><span class="size">2560 x 2140 · 0.72 MB · WEBP @ 82%</span></div>
+            <div class="section-card-actions"><button>Download</button><button>Open</button></div>
+          </div>
+          <div class="mock-image" style="height:180px;background: linear-gradient(180deg, #162133 0%, #1a2840 50%, #0f1923 100%);">
+            <div class="mock-content" style="top:20px;">
+              <div style="display:flex;gap:20px;">
+                <div style="flex:1;height:120px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.06);"></div>
+                <div style="flex:1;height:120px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.06);"></div>
+                <div style="flex:1;height:120px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.06);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel panel-data">
+        <div class="tabs">
+          <button class="tab active">Page Info</button>
+          <button class="tab">Page Text</button>
+          <button class="tab">Raw JSON</button>
+        </div>
+        <div class="meta-item"><div class="meta-label">URL</div><div class="meta-value"><a>https://developer.chrome.com/docs/extensions</a></div></div>
+        <div class="meta-item"><div class="meta-label">Title</div><div class="meta-value">Chrome Extensions | Chrome for Developers</div></div>
+        <div class="meta-item"><div class="meta-label">Captured</div><div class="meta-value">2026-03-08T14:32:17.000Z</div></div>
+        <div class="meta-item"><div class="meta-label">Page Size</div><div class="meta-value">1280 x 6236 px</div></div>
+        <div class="meta-item"><div class="meta-label">Device Pixel Ratio</div><div class="meta-value">2x</div></div>
+        <div class="meta-item"><div class="meta-label">Language</div><div class="meta-value">en</div></div>
+        <div class="meta-item">
+          <div class="meta-label">Page Structure</div>
+          <div class="meta-value">
+            <ul class="headings-list">
+              <li class="h1">Chrome Extensions</li>
+              <li class="h2">— Getting started</li>
+              <li class="h2">— Core concepts</li>
+              <li class="h3">—— Manifest V3</li>
+              <li class="h3">—— Service workers</li>
+              <li class="h2">— API reference</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
