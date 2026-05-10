@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
   "name": "PageGobbler",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Gobble up entire web pages — full-page screenshots with smart compression, section splitting, text extraction, and page metadata.",
   "permissions": [
     "activeTab",
     "scripting",
-    "storage",
-    "windows"
+    "storage"
   ],
   "background": {
     "service_worker": "background.js",

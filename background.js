@@ -19,7 +19,6 @@ const DEFAULT_SETTINGS = {
 let captureState = null;
 let lastCaptureResult = null; // holds completed capture for viewer to fetch
 let lastCaptureTime = 0;
-let progressWindowId = null;
 const MIN_CAPTURE_INTERVAL_MS = 550; // Chrome enforces 2 calls/sec max (500ms); add buffer
 const ACTIVE_CAPTURE_PHASES = new Set(['measuring', 'capturing', 'processing']);
 const RESTRICTED_URL_PATTERN = /^(chrome|chrome-extension|edge|about|brave|vivaldi|opera):/i;
@@ -116,30 +115,6 @@ async function handleStartCapture(tabId) {
     startTime: Date.now(),
   };
 
-  // Open progress window near top-right of the current window
-  try {
-    const currentWindow = tab.windowId
-      ? await chrome.windows.get(tab.windowId)
-      : await chrome.windows.getCurrent();
-    const winWidth = 300;
-    const winHeight = 100;
-    const left = Math.max(0, (currentWindow.left + currentWindow.width) - winWidth - 20);
-    const top = currentWindow.top + 80;
-
-    const progressWin = await chrome.windows.create({
-      url: chrome.runtime.getURL('progress/progress.html'),
-      type: 'popup',
-      width: winWidth,
-      height: winHeight,
-      left,
-      top,
-      focused: false,
-    });
-    progressWindowId = progressWin.id;
-  } catch (_) {
-    // Progress window is optional — capture works without it
-  }
-
   // Inject and run the content script capture routine
   try {
     await chrome.scripting.executeScript({
@@ -160,7 +135,6 @@ async function handleStartCapture(tabId) {
     }
   } catch (err) {
     captureState = null;
-    closeProgressWindow(0);
     return markStartFailed(
       err?.message?.includes('Receiving end does not exist')
         ? 'Could not inject PageGobbler into this page.'
@@ -237,19 +211,14 @@ async function handleCaptureComplete(msg, sender) {
       elapsedMs: Date.now() - captureState.startTime,
     };
 
-    // Signal done so progress window can show completion
+    // Signal done so the popup can show completion if it is still open
     captureState.phase = 'done';
 
     // Open viewer — it will request the data via messaging
-    const viewerTab = await chrome.tabs.create({
+    await chrome.tabs.create({
       url: chrome.runtime.getURL('viewer/viewer.html'),
       active: true,
     });
-
-    // Ensure the window containing the viewer is focused (handles multi-window setups)
-    if (viewerTab.windowId) {
-      chrome.windows.update(viewerTab.windowId, { focused: true });
-    }
 
     // Tell content script we're done — restore page state
     chrome.tabs.sendMessage(tabId, { action: 'capture-done' });
@@ -258,9 +227,6 @@ async function handleCaptureComplete(msg, sender) {
     chrome.action.setBadgeBackgroundColor({ color: '#27ae60' });
     chrome.action.setBadgeText({ text: '✓' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
-
-    // Close progress window after it has time to show "done"
-    closeProgressWindow(2000);
   } catch (err) {
     console.error('Processing failed:', err);
     if (captureState) {
@@ -271,9 +237,8 @@ async function handleCaptureComplete(msg, sender) {
     chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
     chrome.action.setBadgeText({ text: 'X' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 4000);
-    closeProgressWindow(3000);
   } finally {
-    // Delay nulling captureState so progress window can read the final state
+    // Delay nulling captureState so the popup can read the final state
     setTimeout(() => { captureState = null; }, 3000);
   }
 }
@@ -291,15 +256,6 @@ function handleGetProgress(sendResponse) {
     total: captureState.totalScrolls,
     error: captureState.error || null,
   });
-}
-
-function closeProgressWindow(delayMs = 0) {
-  if (!progressWindowId) return;
-  const winId = progressWindowId;
-  progressWindowId = null;
-  setTimeout(() => {
-    chrome.windows.remove(winId).catch(() => {});
-  }, delayMs);
 }
 
 function isRestrictedUrl(url = '') {

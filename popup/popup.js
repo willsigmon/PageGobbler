@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   let saveTimer = null;
+  let progressTimer = null;
 
   // ── Load saved settings ───────────────────────────────────────────────
 
@@ -154,9 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           status.className = 'status';
-          status.textContent = 'Gobbling... results will open in a new tab.';
-
-          setTimeout(() => window.close(), 800);
+          status.textContent = 'Gobbling... keep this open or click away.';
+          watchCaptureProgress();
         });
       });
     });
@@ -250,6 +250,57 @@ document.addEventListener('DOMContentLoaded', () => {
   function setStatus(message, type = '') {
     status.className = `status ${type}`.trim();
     status.textContent = message;
+  }
+
+  function watchCaptureProgress() {
+    clearInterval(progressTimer);
+
+    const renderProgress = (response) => {
+      if (!response) return;
+      const { phase, current = 0, total = 0, error } = response;
+
+      if (error || phase === 'error') {
+        setStatus(error || 'Capture failed.', 'error');
+        btnCapture.disabled = false;
+        clearInterval(progressTimer);
+        return;
+      }
+
+      if (phase === 'measuring') {
+        setStatus('Measuring page...');
+        return;
+      }
+
+      if (phase === 'capturing') {
+        const totalText = total > 0 ? ` of ${total}` : '';
+        setStatus(`Gobbling viewport ${current}${totalText}...`);
+        return;
+      }
+
+      if (phase === 'processing') {
+        setStatus('Stitching and opening results...');
+        return;
+      }
+
+      if (phase === 'done') {
+        setStatus('Gobbled — opening results.', 'success');
+        clearInterval(progressTimer);
+        setTimeout(() => window.close(), 1200);
+      }
+    };
+
+    const poll = () => {
+      chrome.runtime.sendMessage({ action: 'get-progress' }, (response) => {
+        if (chrome.runtime.lastError) {
+          clearInterval(progressTimer);
+          return;
+        }
+        renderProgress(response);
+      });
+    };
+
+    poll();
+    progressTimer = setInterval(poll, 350);
   }
 
   function gatherSettings() {

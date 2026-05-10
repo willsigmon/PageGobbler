@@ -91,8 +91,6 @@ manifest.json (Manifest V3)
 |   +-- popup.html/css/js  -- Extension popup with capture button + settings
 +-- viewer/
 |   +-- viewer.html/css/js -- Results page: image preview, text, metadata, downloads
-+-- progress/
-|   +-- progress.html/css/js -- Capture progress overlay
 +-- icons/
     +-- icon{16,32,48,128}.png
 ```

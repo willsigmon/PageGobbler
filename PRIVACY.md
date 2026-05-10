@@ -1,6 +1,6 @@
 # PageGobbler — Privacy Policy
 
-**Last updated:** March 7, 2026
+**Last updated:** May 10, 2026
 
 ## What PageGobbler Does
 
