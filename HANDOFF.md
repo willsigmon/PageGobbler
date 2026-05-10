@@ -4,10 +4,12 @@
 Chrome extension that captures full-page screenshots with smart compression, section splitting, text extraction, design tokens, and metadata. Ships as a ZIP with everything.
 
 ## Where we left off
-**Chrome Web Store ready (v2.0).** Last commits:
+**Chrome Web Store ready; v2.1 polish in progress locally.** Last known shipped commits:
 - Added store assets (screenshots, promo images)
 - v2.0 feature-complete: 1-click mode, full page reverse-engineering ZIP
 - Renamed to PageGobbler
+
+Latest local work adds popup presets, stronger blocked-page handling, AI Brief export/copy, and fixes compression settings so quality/aggressive/lossless behave as advertised.
 
 ## What's next
 1. **Chrome Web Store submission** — store assets are ready, submit for review

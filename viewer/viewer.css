@@ -24,11 +24,20 @@
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 10% -15%, rgba(232, 168, 73, 0.12), transparent 34%),
+    radial-gradient(circle at 95% -10%, rgba(192, 57, 43, 0.12), transparent 30%),
+    var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.5;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
 }
 
 .app {
@@ -66,6 +75,8 @@ body {
 .topbar-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Buttons */
@@ -148,6 +159,49 @@ body {
 
 .status-bar.error .progress-fill {
   background: var(--error);
+}
+
+/* Summary Strip */
+.summary-strip {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 16px 28px;
+  background: rgba(18, 12, 6, 0.76);
+  border-bottom: 1px solid var(--border);
+}
+
+.summary-card {
+  background: linear-gradient(180deg, rgba(36, 26, 14, 0.96), rgba(26, 16, 8, 0.96));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  min-width: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.summary-label {
+  display: block;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.summary-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-card:first-child strong {
+  color: var(--accent-light);
 }
 
 /* Main Layout */
@@ -369,8 +423,9 @@ body {
 .headings-list li.h2 { padding-left: 14px; color: var(--text-mid); }
 .headings-list li.h3 { padding-left: 28px; font-size: 11px; }
 
-/* OCR Text */
-.ocr-text {
+/* Text Exports */
+.ocr-text,
+.ai-brief {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -382,6 +437,10 @@ body {
   max-height: calc(100vh - 200px);
   overflow-y: auto;
   color: var(--text-mid);
+}
+
+.ai-brief {
+  color: var(--text);
 }
 
 /* JSON Output */
@@ -419,6 +478,9 @@ body {
 
 /* Responsive */
 @media (max-width: 900px) {
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .main {
     flex-direction: column;
   }
@@ -437,5 +499,24 @@ body {
   }
   .topbar-actions {
     flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar,
+  .status-bar,
+  .summary-strip,
+  .panel {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    width: 100%;
   }
 }

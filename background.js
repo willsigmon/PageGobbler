@@ -21,6 +21,8 @@ let lastCaptureResult = null; // holds completed capture for viewer to fetch
 let lastCaptureTime = 0;
 let progressWindowId = null;
 const MIN_CAPTURE_INTERVAL_MS = 550; // Chrome enforces 2 calls/sec max (500ms); add buffer
+const ACTIVE_CAPTURE_PHASES = new Set(['measuring', 'capturing', 'processing']);
+const RESTRICTED_URL_PATTERN = /^(chrome|chrome-extension|edge|about|brave|vivaldi|opera):/i;
 
 // ── 1-Click Mode ────────────────────────────────────────────────────────────
 
@@ -57,11 +59,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     'get-progress': () => handleGetProgress(sendResponse),
     'get-settings': () => handleGetSettings(sendResponse),
     'save-settings': () => handleSaveSettings(msg.settings, sendResponse),
+    'start-capture': () => handleStartCapture(msg.tabId ?? sender.tab?.id)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ ok: false, error: err.message })),
   };
 
   // Fire-and-forget handlers — no sendResponse needed
   const fireHandlers = {
-    'start-capture': () => handleStartCapture(msg.tabId ?? sender.tab?.id),
     'capture-viewport': () => handleCaptureViewport(msg, sender),
     'capture-complete': () => handleCaptureComplete(msg, sender),
   };
@@ -79,7 +83,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // ── Capture Flow ────────────────────────────────────────────────────────────
 
 async function handleStartCapture(tabId) {
-  if (!tabId) return;
+  if (!tabId) {
+    return markStartFailed('No active tab found.');
+  }
+
+  if (captureState && ACTIVE_CAPTURE_PHASES.has(captureState.phase)) {
+    return markStartFailed('A gobble is already running.');
+  }
+
+  let tab = null;
+  try {
+    tab = await chrome.tabs.get(tabId);
+  } catch (_) {
+    return markStartFailed('Could not inspect the active tab.');
+  }
+
+  if (isRestrictedUrl(tab.url)) {
+    return markStartFailed('Chrome blocks capture on browser/internal pages.');
+  }
 
   // Badge: show capturing state
   chrome.action.setBadgeBackgroundColor({ color: '#D4762C' });
@@ -97,7 +118,9 @@ async function handleStartCapture(tabId) {
 
   // Open progress window near top-right of the current window
   try {
-    const currentWindow = await chrome.windows.getCurrent();
+    const currentWindow = tab.windowId
+      ? await chrome.windows.get(tab.windowId)
+      : await chrome.windows.getCurrent();
     const winWidth = 300;
     const winHeight = 100;
     const left = Math.max(0, (currentWindow.left + currentWindow.width) - winWidth - 20);
@@ -124,13 +147,28 @@ async function handleStartCapture(tabId) {
       files: ['content/content.js'],
     });
   } catch (_) {
-    // content script may already be injected
+    // The content script may already be injected. We confirm by messaging below.
   }
 
-  chrome.tabs.sendMessage(tabId, {
-    action: 'begin-scroll-capture',
-    settings,
-  });
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, {
+      action: 'begin-scroll-capture',
+      settings,
+    });
+    if (response?.ok === false) {
+      throw new Error(response.error || 'Page rejected the capture request.');
+    }
+  } catch (err) {
+    captureState = null;
+    closeProgressWindow(0);
+    return markStartFailed(
+      err?.message?.includes('Receiving end does not exist')
+        ? 'Could not inject PageGobbler into this page.'
+        : err.message
+    );
+  }
+
+  return { ok: true };
 }
 
 async function handleCaptureViewport(msg, sender) {
@@ -262,6 +300,17 @@ function closeProgressWindow(delayMs = 0) {
   setTimeout(() => {
     chrome.windows.remove(winId).catch(() => {});
   }, delayMs);
+}
+
+function isRestrictedUrl(url = '') {
+  return RESTRICTED_URL_PATTERN.test(url);
+}
+
+function markStartFailed(message) {
+  chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
+  chrome.action.setBadgeText({ text: '!' });
+  setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2500);
+  return { ok: false, error: message };
 }
 
 // ── Capture Data Handoff ─────────────────────────────────────────────────────

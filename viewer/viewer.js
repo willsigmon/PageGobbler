@@ -117,9 +117,16 @@ const ZipBuilder = (() => {
   const progressFill = document.getElementById('progress-fill');
   const sectionsGrid = document.getElementById('sections-grid');
   const metaGrid = document.getElementById('meta-grid');
+  const aiBriefOutput = document.getElementById('ai-brief');
   const ocrText = document.getElementById('ocr-text');
   const jsonOutput = document.getElementById('json-output');
+  const summarySource = document.getElementById('summary-source');
+  const summarySections = document.getElementById('summary-sections');
+  const summarySize = document.getElementById('summary-size');
+  const summaryAi = document.getElementById('summary-ai');
   const btnDownloadAll = document.getElementById('btn-download-all');
+  const btnCopyBrief = document.getElementById('btn-copy-brief');
+  const btnDownloadBrief = document.getElementById('btn-download-brief');
   const btnCopyText = document.getElementById('btn-copy-text');
   const btnCopyMeta = document.getElementById('btn-copy-metadata');
 
@@ -137,6 +144,7 @@ const ZipBuilder = (() => {
   let processedSections = [];
   let fullMetadata = {};
   let extractedText = '';
+  let aiBrief = '';
 
   // ── Load captured data (fetch from background via messaging) ────────────
 
@@ -208,6 +216,7 @@ const ZipBuilder = (() => {
       quality: result.quality,
       scaled: result.scaled,
       scaleFactor: result.scaleFactor,
+      overLimit: result.overLimit === true,
       sizeMB: (result.blob.size / (1024 * 1024)).toFixed(2),
     });
   }
@@ -248,6 +257,7 @@ const ZipBuilder = (() => {
       sizeMB: s.sizeMB,
       scaled: s.scaled,
       scaleFactor: s.scaleFactor || 1,
+      overLimit: s.overLimit,
       startY: s.startY,
       endY: s.endY,
       heightPx: s.endY - s.startY,
@@ -258,6 +268,15 @@ const ZipBuilder = (() => {
       topLinks: pageInfo.topLinks?.slice(0, 20),
     },
     meta: pageInfo.metaTags,
+    design: pageInfo.designTokens,
+    assets: pageInfo.imageAssets,
+    structuredData: pageInfo.structuredData,
+    resources: pageInfo.externalResources,
+    forms: pageInfo.forms,
+    textStats: {
+      characters: extractedText.length,
+      words: extractedText.trim() ? extractedText.trim().split(/\s+/).length : 0,
+    },
     processing: {
       elapsedMs: captureData.elapsedMs,
       totalCaptures: captures.length,
@@ -266,7 +285,11 @@ const ZipBuilder = (() => {
     },
   };
 
+  aiBrief = buildAIBrief(pageInfo, fullMetadata, extractedText, processedSections, settings);
+  aiBriefOutput.textContent = aiBrief;
+
   renderMetadata(pageInfo);
+  renderSummary(pageInfo, processedSections, fullMetadata, aiBrief);
   jsonOutput.textContent = JSON.stringify(fullMetadata, null, 2);
 
   // ── Step 6: Render sections ───────────────────────────────────────────
@@ -279,12 +302,16 @@ const ZipBuilder = (() => {
   statusBar.classList.add('done');
 
   btnDownloadAll.disabled = false;
+  btnCopyBrief.disabled = false;
+  btnDownloadBrief.disabled = false;
   btnCopyText.disabled = false;
   btnCopyMeta.disabled = false;
 
   // ── Event Handlers ────────────────────────────────────────────────────
 
   btnDownloadAll.addEventListener('click', () => downloadAllAsZip());
+  btnCopyBrief.addEventListener('click', () => copyToClipboard(aiBrief, btnCopyBrief));
+  btnDownloadBrief.addEventListener('click', () => downloadBrief());
   btnCopyText.addEventListener('click', () => copyToClipboard(extractedText, btnCopyText));
   btnCopyMeta.addEventListener('click', () => copyToClipboard(JSON.stringify(fullMetadata, null, 2), btnCopyMeta));
 
@@ -311,7 +338,8 @@ const ZipBuilder = (() => {
       const sizeSpan = document.createElement('span');
       sizeSpan.className = 'size';
       const scaleInfo = s.scaled ? ` · scaled ${Math.round((s.scaleFactor || 1) * 100)}%` : '';
-      sizeSpan.textContent = `${dims} · ${s.sizeMB} MB · ${formatLabel} @ ${Math.round(s.quality * 100)}%${scaleInfo}`;
+      const limitInfo = s.overLimit ? ' · over target' : '';
+      sizeSpan.textContent = `${dims} · ${s.sizeMB} MB · ${formatLabel} @ ${Math.round(s.quality * 100)}%${scaleInfo}${limitInfo}`;
       infoDiv.appendChild(badge);
       infoDiv.appendChild(document.createTextNode(' '));
       infoDiv.appendChild(sizeSpan);
@@ -352,6 +380,9 @@ const ZipBuilder = (() => {
       { label: 'Page Size', value: `${info.viewportWidth} x ${info.pageHeight} px` },
       { label: 'Device Pixel Ratio', value: `${info.devicePixelRatio}x` },
       { label: 'Language', value: info.documentLang },
+      { label: 'Links', value: `${info.linkCount || 0} captured` },
+      { label: 'Assets', value: `${info.imageAssets?.images?.length || 0} images · ${info.imageAssets?.backgroundImages?.length || 0} backgrounds` },
+      { label: 'Forms', value: `${info.forms?.length || 0} detected` },
     ];
 
     metaGrid.textContent = '';
@@ -433,6 +464,15 @@ const ZipBuilder = (() => {
     }
   }
 
+  function renderSummary(info, sectionList, metadata, brief) {
+    summarySource.textContent = hostFromUrl(info.url) || info.title || 'Captured page';
+    summarySections.textContent = `${sectionList.length} section${sectionList.length === 1 ? '' : 's'}`;
+    summarySize.textContent = `${totalSizeMB(sectionList)} MB`;
+    summaryAi.textContent = brief
+      ? `${metadata.pageStructure.headings?.length || 0} headings · ${metadata.pageStructure.linkCount || 0} links`
+      : 'Not available';
+  }
+
   // ── Utility Functions ─────────────────────────────────────────────────
 
   function setStatus(text, pct, isError = false) {
@@ -484,6 +524,14 @@ const ZipBuilder = (() => {
         files.push({
           name: 'page_text.txt',
           data: new TextEncoder().encode(extractedText),
+        });
+      }
+
+      // Add AI-ready brief
+      if (aiBrief) {
+        files.push({
+          name: 'ai_brief.md',
+          data: new TextEncoder().encode(aiBrief),
         });
       }
 
@@ -601,6 +649,13 @@ const ZipBuilder = (() => {
     }
   }
 
+  function downloadBrief() {
+    const blob = new Blob([aiBrief], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    triggerDownload(url, `gobble_${sanitizeFilename(fullMetadata.source.title)}_ai_brief.md`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   function triggerDownload(url, filename) {
     const a = document.createElement('a');
     a.href = url;
@@ -631,6 +686,96 @@ const ZipBuilder = (() => {
 
   function sanitizeFilename(str) {
     return (str || 'page').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+  }
+
+  function hostFromUrl(url) {
+    try {
+      return new URL(url).hostname;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function buildAIBrief(info, metadata, text, sectionList, settings) {
+    const designTokens = info.designTokens || {};
+    const colors = (designTokens.colors || [])
+      .slice(0, 8)
+      .map(({ color, count }) => `- ${color} (${count})`)
+      .join('\n');
+    const fonts = (designTokens.fonts || [])
+      .slice(0, 6)
+      .map(({ family, size, weight, count }) => `- ${family}; ${size}; weight ${weight} (${count})`)
+      .join('\n');
+    const headings = (info.headings || [])
+      .slice(0, 30)
+      .map((h) => `${'  '.repeat(Math.max(0, h.level - 1))}- H${h.level}: ${h.text}`)
+      .join('\n');
+    const links = (info.topLinks || [])
+      .slice(0, 20)
+      .map((l) => `- [${l.text}](${l.href})`)
+      .join('\n');
+    const sections = sectionList
+      .map((s, i) => {
+        const scale = s.scaled ? `, scaled ${Math.round((s.scaleFactor || 1) * 100)}%` : '';
+        const overLimit = s.overLimit ? ', over target' : '';
+        return `- section_${i + 1}.${s.format.split('/')[1]}: ${s.canvas.width}x${s.canvas.height}, ${s.sizeMB} MB, ${s.format}, quality ${Math.round(s.quality * 100)}%${scale}${overLimit}`;
+      })
+      .join('\n');
+
+    return [
+      `# PageGobbler AI Brief: ${info.title || 'Captured Page'}`,
+      '',
+      '## Source',
+      `- URL: ${info.url || 'unknown'}`,
+      `- Title: ${info.title || 'unknown'}`,
+      `- Captured: ${info.capturedAt || new Date().toISOString()}`,
+      `- Language: ${info.documentLang || 'unknown'}`,
+      '',
+      '## Capture',
+      `- Page size: ${info.viewportWidth} x ${info.pageHeight} CSS px`,
+      `- Device pixel ratio: ${info.devicePixelRatio || 1}x`,
+      `- Viewport captures: ${metadata.processing.totalCaptures}`,
+      `- Output sections: ${sectionList.length}`,
+      `- Total output size: ${totalSizeMB(sectionList)} MB`,
+      `- Compression: ${settings.compressionStrategy}; target ${settings.maxFileSizeMB} MB; quality ceiling ${Math.round((settings.quality || 0.92) * 100)}%`,
+      `- Elapsed: ${formatElapsed(metadata.processing.elapsedMs)}`,
+      '',
+      '## Screenshot Files',
+      sections || '- none',
+      '',
+      '## Page Structure',
+      headings || '- No headings detected.',
+      '',
+      '## Design Tokens',
+      '### Colors',
+      colors || '- No color samples detected.',
+      '',
+      '### Fonts',
+      fonts || '- No font samples detected.',
+      '',
+      '## Key Links',
+      links || '- No links detected.',
+      '',
+      '## Text Excerpt',
+      textExcerpt(text, 6000),
+      '',
+      '## Suggested AI Use',
+      'Use the screenshot sections as the visual source of truth. Use this brief for URL, structure, copy, links, metadata, design tokens, and implementation hints. If recreating the page, preserve the hierarchy and visible copy before adding new design ideas.',
+      '',
+    ].join('\n');
+  }
+
+  function textExcerpt(text, maxLength) {
+    if (!text) return '(No text extracted.)';
+    const normalized = text.replace(/\n{3,}/g, '\n\n').trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, maxLength).trim()}\n\n... [truncated in brief; full text is in page_text.txt]`;
+  }
+
+  function formatElapsed(ms) {
+    if (!Number.isFinite(ms)) return 'unknown';
+    if (ms < 1000) return `${ms} ms`;
+    return `${(ms / 1000).toFixed(1)} s`;
   }
 
   function buildDOMText(info) {

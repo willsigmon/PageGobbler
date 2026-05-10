@@ -22,6 +22,7 @@ When you explicitly trigger a capture, the extension temporarily holds:
 - Screenshots of the page you chose to capture
 - Page metadata (URL, title, headings, meta tags, links)
 - Visible text content from the page DOM
+- An optional AI-ready Markdown brief generated locally from the capture
 - Console log output generated during the capture
 
 This data exists only in browser memory for the duration of the viewer session. It is not saved to disk unless you explicitly download the results.

@@ -28,6 +28,7 @@
   let originalScrollBehavior = '';
   let settings = {};
   let fixedElements = [];
+  let capturedPageInfo = null;
 
   // Console capture state — only active during capture
   let capturedConsole = [];
@@ -108,14 +109,21 @@
 
   // ── Message Handler ─────────────────────────────────────────────────────
 
-  chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const handlers = {
       'begin-scroll-capture': () => beginCapture(msg.settings),
       'next-scroll': () => captureNextViewport(),
       'capture-error': () => cleanupCapture(msg.error),
       'capture-done': () => cleanup(),
     };
-    handlers[msg.action]?.();
+    if (!handlers[msg.action]) return false;
+    try {
+      handlers[msg.action]();
+      sendResponse({ ok: true });
+    } catch (err) {
+      sendResponse({ ok: false, error: err.message });
+    }
+    return false;
   });
 
   // ── Capture Orchestration ───────────────────────────────────────────────
@@ -146,6 +154,10 @@
     viewportHeight = window.innerHeight;
     totalScrolls = Math.ceil(pageHeight / viewportHeight);
     scrollIndex = 0;
+
+    // Capture page context before we hide fixed/sticky chrome for screenshot stitching.
+    // Otherwise headers/nav/cookie bars can disappear from text, links, and DOM exports.
+    capturedPageInfo = collectPageInfo();
 
     detectFixedElements();
 
@@ -197,7 +209,11 @@
   }
 
   function finishCapture() {
-    const pageInfo = collectPageInfo();
+    const pageInfo = {
+      ...(capturedPageInfo || collectPageInfo()),
+      capturedAt: new Date().toISOString(),
+      consoleLogs: [...capturedConsole],
+    };
 
     chrome.runtime.sendMessage({
       action: 'capture-complete',
@@ -213,6 +229,7 @@
   function cleanup() {
     restoreFixedElements();
     stopConsoleCapture();
+    capturedPageInfo = null;
     document.documentElement.style.scrollBehavior = originalScrollBehavior;
     document.documentElement.style.overflow = '';
     document.body.style.overflow = '';

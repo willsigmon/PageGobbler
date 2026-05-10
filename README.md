@@ -12,7 +12,9 @@ A Chrome extension that gobbles up entire web pages — full-page screenshots wi
 - **Design tokens** — captures colors, fonts, and CSS custom properties
 - **Structured data** — extracts JSON-LD, Open Graph, and Twitter Card data
 - **Viewer page** — dedicated results page with image preview, download controls, text, and metadata tabs
+- **AI Brief** — one-click Markdown context pack for sending the capture to AI tools
 - **Download ZIP** — batch download all sections + metadata JSON + text + styles + assets catalog
+- **Capture presets** — Balanced, Fast, and Crisp modes for common quality/file-size tradeoffs
 - **1-Click mode** — skip the popup, gobble immediately on icon click
 - **Keyboard shortcut** — `Alt+Shift+G` to gobble the current page
 
@@ -24,6 +26,7 @@ For each screenshot, PageGobbler produces a ZIP containing:
 |--------|-------------|
 | Image section(s) | Compressed WebP/JPEG/PNG, each under your size target |
 | `metadata.json` | Page URL, title, headings, meta tags, dimensions, compression stats |
+| `ai_brief.md` | AI-ready Markdown summary with source, structure, screenshot files, design tokens, links, and text excerpt |
 | `page_text.txt` | Extracted visible text from the DOM |
 | `dom_structure.html` | Semantic HTML skeleton of the page |
 | `design_tokens.json` | Colors, fonts, CSS custom properties |
@@ -54,6 +57,7 @@ Install from the [Chrome Web Store](https://chromewebstore.google.com/) (link co
 1. Navigate to any webpage
 2. Click the turkey icon in the toolbar (or press `Alt+Shift+G`)
 3. (Optional) Expand **Settings** to configure:
+   - **Presets** — Balanced, Fast, or Crisp defaults
    - **Max File Size** — target per-section limit (default 3 MB)
    - **Compression** — Auto (WebP then JPEG), Aggressive, or Lossless (PNG)
    - **Section Max Height** — pixel height before splitting (default 4096)

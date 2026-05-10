@@ -4,7 +4,7 @@
 PageGobbler
 
 ## Summary (132 char max)
-Gobble up entire web pages — full-page screenshots with smart compression, section splitting, and complete page reverse-engineering.
+Gobble full pages into screenshots, AI briefs, text, design tokens, metadata, and ZIP-ready page context.
 
 ## Description (for store listing)
 
@@ -17,8 +17,10 @@ But screenshots are just the beginning. PageGobbler reverse-engineers the full p
 • Smart compression — iteratively reduces format/quality/scale to hit your target file size
 • Smart section splitting — breaks tall pages at natural visual boundaries
 • Supports WebP, JPEG, and PNG output
+• Capture presets for fast, balanced, or high-detail output
 
 ★ COMPLETE PAGE EXTRACTION
+• AI Brief — Markdown context pack ready to paste into AI tools
 • Page text — all visible text from the DOM
 • Metadata — URL, title, headings, meta tags, dimensions, timestamps
 • Design tokens — colors, fonts, CSS custom properties
@@ -35,6 +37,7 @@ But screenshots are just the beginning. PageGobbler reverse-engineers the full p
 • 1-Click mode — skip the popup entirely
 • Keyboard shortcut (Alt+Shift+G)
 • Built-in viewer with image preview, text, and metadata tabs
+• Copy or download the AI Brief from the results page
 • Download everything as a single ZIP
 
 ★ PRIVACY FIRST
@@ -66,8 +69,9 @@ https://github.com/willsigmon/PageGobbler/issues
 Chrome Web Store requires: **1280x800** or **640x400** pixels exactly.
 
 Current screenshots:
-- screenshot-viewer.png: 1280x800 ✅ Ready
-- screenshot-popup.png: 640x900 ❌ Wrong dimensions
+- screenshot-viewer-1280x800.png: 1280x800 ✅ Ready
+- screenshot-popup-1280x800.png: 1280x800 ✅ Ready
+- screenshot-popup-store.png: 640x800 ⚠️ Not a Chrome Web Store screenshot size; use only as a local/reference asset
 
 ### To capture proper screenshots:
 1. Load the extension in Chrome (Developer mode)
@@ -87,7 +91,7 @@ You can have up to 5 screenshots. At least 1 is required.
 
 | Asset | Size | Status |
 |-------|------|--------|
-| Small promo tile | 440x280 | ❌ Needed |
+| Small promo tile | 440x280 | ✅ Ready (`promo-small-440x280.png`) |
 | Large promo tile | 920x680 | ❌ Needed |
 | Marquee promo | 1400x560 | ❌ Needed |
 
@@ -98,13 +102,13 @@ These show up in search results and featured sections. Worth creating.
 ## Submission Checklist
 
 - [x] manifest.json is Manifest V3
-- [x] ZIP created (dist/PageGobbler-v2.0.0.zip)
+- [x] ZIP created for current version (dist/PageGobbler-v2.1.0.zip)
 - [x] Privacy policy hosted (GitHub)
 - [x] Store description written
 - [x] At least 1 valid screenshot (viewer — 1280x800)
 - [ ] Chrome Developer account ($5 one-time) — https://chrome.google.com/webstore/devconsole
-- [ ] Fix popup screenshot to valid dimensions
-- [ ] (Optional) Create promotional tile images
+- [x] Fix popup screenshot to valid dimensions
+- [x] Create required small promotional tile image
 - [ ] Upload ZIP to developer console
 - [ ] Fill in listing details from this doc
 - [ ] Submit for review (1-3 business days)

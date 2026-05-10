@@ -29,9 +29,11 @@
         <h1>PageGobbler</h1>
       </div>
       <div class="topbar-actions">
-        <button id="btn-download-all" class="btn btn-primary">Download ZIP</button>
-        <button id="btn-copy-text" class="btn btn-secondary">Copy Page Text</button>
-        <button id="btn-copy-metadata" class="btn btn-secondary">Copy Metadata</button>
+        <button id="btn-download-all" class="btn btn-primary" disabled>Download ZIP</button>
+        <button id="btn-copy-brief" class="btn btn-secondary" disabled>Copy AI Brief</button>
+        <button id="btn-download-brief" class="btn btn-secondary" disabled>Download Brief</button>
+        <button id="btn-copy-text" class="btn btn-secondary" disabled>Copy Text</button>
+        <button id="btn-copy-metadata" class="btn btn-secondary" disabled>Copy JSON</button>
       </div>
     </header>
 
@@ -42,6 +44,25 @@
         <div class="progress-fill" id="progress-fill"></div>
       </div>
     </div>
+
+    <section class="summary-strip" id="summary-strip" aria-label="Capture summary">
+      <div class="summary-card">
+        <span class="summary-label">Source</span>
+        <strong id="summary-source">Waiting...</strong>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Sections</span>
+        <strong id="summary-sections">—</strong>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Size</span>
+        <strong id="summary-size">—</strong>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">AI Pack</span>
+        <strong id="summary-ai">Building...</strong>
+      </div>
+    </section>
 
     <!-- Main Content -->
     <div class="main">
@@ -57,6 +78,7 @@
       <div class="panel panel-data">
         <div class="tabs">
           <button class="tab active" data-tab="metadata">Page Info</button>
+          <button class="tab" data-tab="brief">AI Brief</button>
           <button class="tab" data-tab="ocr">Page Text</button>
           <button class="tab" data-tab="json">Raw JSON</button>
         </div>
@@ -65,6 +87,10 @@
           <div class="meta-grid" id="meta-grid">
             <!-- Filled dynamically -->
           </div>
+        </div>
+
+        <div class="tab-content" id="tab-brief">
+          <pre id="ai-brief" class="ai-brief">Building AI brief...</pre>
         </div>
 
         <div class="tab-content" id="tab-ocr">
