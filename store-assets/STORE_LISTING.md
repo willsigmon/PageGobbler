@@ -102,7 +102,7 @@ These show up in search results and featured sections. Worth creating.
 ## Submission Checklist
 
 - [x] manifest.json is Manifest V3
-- [x] ZIP created for current version (dist/PageGobbler-v2.1.1.zip)
+- [x] ZIP created for current version (dist/PageGobbler-v2.1.2.zip)
 - [x] Privacy policy hosted (GitHub)
 - [x] Store description written
 - [x] At least 1 valid screenshot (viewer — 1280x800)
