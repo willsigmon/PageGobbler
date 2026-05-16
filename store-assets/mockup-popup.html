@@ -6,19 +6,26 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #2a2a2a;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% 22%, rgba(232, 168, 73, 0.10), transparent 22%),
+        #2a2a2a;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     .chrome-frame {
-      background: #1a1008;
-      border-radius: 12px;
       width: 340px;
-      box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
       overflow: hidden;
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(232, 168, 73, 0.18), transparent 36%),
+        radial-gradient(circle at 95% 0%, rgba(192, 57, 43, 0.16), transparent 32%),
+        #1a1008;
+      color: #F5E6D0;
+      font-size: 13px;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
     }
     .container { padding: 16px; }
     header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -28,48 +35,35 @@
       background: linear-gradient(135deg, #E8A849 0%, #D4762C 50%, #C0392B 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .version {
-      font-size: 10px; color: #9C8A74; background: #2e2114;
-      padding: 2px 8px; border-radius: 10px; border: 1px solid #3d2e1a;
+    .version { font-size: 10px; color: #9C8A74; background: #2e2114; padding: 2px 8px; border-radius: 10px; border: 1px solid #3d2e1a; }
+    .page-card {
+      background: linear-gradient(180deg, rgba(46, 33, 20, 0.96), rgba(36, 26, 14, 0.96));
+      border: 1px solid #3d2e1a;
+      border-radius: 12px;
+      padding: 11px 12px;
+      margin-bottom: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
     }
+    .page-card-main { display: flex; align-items: flex-start; gap: 10px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 999px; background: #27ae60; box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.12); margin-top: 4px; flex: 0 0 auto; }
+    .page-card-title { color: #F5E6D0; font-size: 12px; font-weight: 700; line-height: 1.3; max-width: 270px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-card-url { color: #9C8A74; font-size: 11px; line-height: 1.35; margin-top: 2px; max-width: 270px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-primary {
       width: 100%; padding: 14px; border: none; border-radius: 10px;
       background: linear-gradient(135deg, #D4762C 0%, #C0392B 100%);
-      color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
+      color: #fff; font-size: 15px; font-weight: 700;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       text-shadow: 0 1px 2px rgba(0,0,0,0.3);
       box-shadow: 0 2px 8px rgba(192, 57, 43, 0.25), inset 0 1px 0 rgba(255,255,255,0.1);
     }
-    .settings-toggle {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0; margin-top: 14px; color: #D4762C;
-      font-size: 12px; font-weight: 500; letter-spacing: 0.3px;
-      border-top: 1px solid #2e2114;
-    }
-    .chevron { transition: transform 0.2s ease; transform: rotate(180deg); }
-    .settings-panel { padding-top: 10px; }
-    .setting-group { margin-bottom: 14px; }
-    .setting-group label {
-      display: block; font-size: 10px; color: #9C8A74; margin-bottom: 5px;
-      text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;
-    }
-    .setting-group.checkbox label {
-      display: flex; align-items: center; gap: 8px; text-transform: none;
-      letter-spacing: normal; font-size: 13px; color: #D4C4A8; font-weight: 400;
-    }
-    .setting-group input[type="number"], .setting-group select {
-      width: 100%; padding: 8px 10px; background: #241a0e;
-      border: 1px solid #3d2e1a; border-radius: 8px; color: #F5E6D0; font-size: 13px;
-    }
-    .setting-group input[type="checkbox"] { accent-color: #D4762C; width: 16px; height: 16px; }
-    .range-row { display: flex; align-items: center; gap: 10px; }
-    .range-row input[type="range"] { flex: 1; accent-color: #D4762C; }
-    .range-row span { min-width: 36px; text-align: right; color: #E8A849; font-size: 12px; font-weight: 600; }
-    .oneclick-group {
-      padding: 10px 12px; background: #241a0e;
-      border: 1px solid #3d2e1a; border-radius: 8px; margin-bottom: 16px;
-    }
-    .setting-hint { font-size: 11px; color: #9C8A74; margin-top: 6px; padding-left: 24px; }
+    .btn-subtext { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.72); text-shadow: none; }
+    .preset-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 12px; }
+    .preset { background: rgba(36, 26, 14, 0.82); border: 1px solid #3d2e1a; color: #D4C4A8; border-radius: 10px; padding: 8px 6px; }
+    .preset.active { border-color: #D4762C; background: linear-gradient(180deg, rgba(212, 118, 44, 0.2), rgba(36, 26, 14, 0.92)); box-shadow: 0 0 0 1px rgba(212, 118, 44, 0.18), 0 8px 22px rgba(0,0,0,0.18); }
+    .preset strong, .preset span { display: block; }
+    .preset strong { color: #F5E6D0; font-size: 11px; line-height: 1.2; }
+    .preset span { color: #9C8A74; font-size: 10px; line-height: 1.25; margin-top: 2px; }
+    .settings-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; margin-top: 12px; color: #9C8A74; font-size: 12px; font-weight: 500; letter-spacing: 0.3px; border-top: 1px solid #2e2114; }
   </style>
 </head>
 <body>
@@ -78,65 +72,34 @@
       <header>
         <div class="logo">
           <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
-            <path d="M16 4 Q10 1 7 6 Q10 6 12 10" fill="#C0392B"/>
-            <path d="M16 4 Q22 1 25 6 Q22 6 20 10" fill="#C0392B"/>
-            <path d="M16 3 Q8 2 6 8 Q10 7 13 10" fill="#D4762C"/>
-            <path d="M16 3 Q24 2 26 8 Q22 7 19 10" fill="#D4762C"/>
-            <path d="M16 2 Q12 3 10 8 Q13 7 15 10" fill="#E8A849"/>
-            <path d="M16 2 Q20 3 22 8 Q19 7 17 10" fill="#E8A849"/>
-            <ellipse cx="16" cy="18" rx="7" ry="8" fill="#8B4513"/>
-            <ellipse cx="16" cy="17" rx="5.5" ry="6" fill="#A0522D"/>
-            <circle cx="16" cy="11" r="3.5" fill="#D2691E"/>
-            <path d="M15 12.5 L16 14 L17 12.5" fill="#E8A849" stroke="#D4762C" stroke-width="0.3"/>
-            <path d="M16 14 Q16.5 15.5 16 16.5" stroke="#C0392B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-            <circle cx="14.5" cy="10.5" r="0.8" fill="#1a1008"/>
-            <circle cx="17.5" cy="10.5" r="0.8" fill="#1a1008"/>
-            <circle cx="14.8" cy="10.3" r="0.25" fill="#fff"/>
-            <circle cx="17.8" cy="10.3" r="0.25" fill="#fff"/>
-            <path d="M13 25 L12 28 M13 25 L13 28.5 M13 25 L14 28" stroke="#D4762C" stroke-width="1" stroke-linecap="round"/>
-            <path d="M19 25 L18 28 M19 25 L19 28.5 M19 25 L20 28" stroke="#D4762C" stroke-width="1" stroke-linecap="round"/>
+            <path d="M16 4 Q10 1 7 6 Q10 6 12 10" fill="#C0392B"/><path d="M16 4 Q22 1 25 6 Q22 6 20 10" fill="#C0392B"/><path d="M16 3 Q8 2 6 8 Q10 7 13 10" fill="#D4762C"/><path d="M16 3 Q24 2 26 8 Q22 7 19 10" fill="#D4762C"/><path d="M16 2 Q12 3 10 8 Q13 7 15 10" fill="#E8A849"/><path d="M16 2 Q20 3 22 8 Q19 7 17 10" fill="#E8A849"/>
+            <ellipse cx="16" cy="18" rx="7" ry="8" fill="#8B4513"/><ellipse cx="16" cy="17" rx="5.5" ry="6" fill="#A0522D"/><circle cx="16" cy="11" r="3.5" fill="#D2691E"/>
+            <path d="M15 12.5 L16 14 L17 12.5" fill="#E8A849" stroke="#D4762C" stroke-width="0.3"/><path d="M16 14 Q16.5 15.5 16 16.5" stroke="#C0392B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <circle cx="14.5" cy="10.5" r="0.8" fill="#1a1008"/><circle cx="17.5" cy="10.5" r="0.8" fill="#1a1008"/><circle cx="14.8" cy="10.3" r="0.25" fill="#fff"/><circle cx="17.8" cy="10.3" r="0.25" fill="#fff"/>
+            <path d="M13 25 L12 28 M13 25 L13 28.5 M13 25 L14 28" stroke="#D4762C" stroke-width="1" stroke-linecap="round"/><path d="M19 25 L18 28 M19 25 L19 28.5 M19 25 L20 28" stroke="#D4762C" stroke-width="1" stroke-linecap="round"/>
           </svg>
           <h1>PageGobbler</h1>
         </div>
-        <span class="version">v2.0</span>
+        <span class="version">v2.1.3</span>
       </header>
-      <button class="btn-primary">Gobble This Page</button>
-      <div class="settings-toggle">
-        <span>Settings</span>
-        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12">
-          <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="settings-panel">
-        <div class="setting-group checkbox oneclick-group">
-          <label><input type="checkbox"> 1-Click Gobble</label>
-          <div class="setting-hint">Click the turkey icon to instantly gobble — no popup.</div>
-        </div>
-        <div class="setting-group">
-          <label>Max File Size (MB)</label>
-          <input type="number" value="3">
-        </div>
-        <div class="setting-group">
-          <label>Compression</label>
-          <select><option>Auto (WebP → JPEG)</option></select>
-        </div>
-        <div class="setting-group">
-          <label>Section Max Height (px)</label>
-          <input type="number" value="4096">
-        </div>
-        <div class="setting-group checkbox">
-          <label><input type="checkbox" checked> Extract Page Text</label>
-        </div>
-        <div class="setting-group checkbox">
-          <label><input type="checkbox" checked> Smart Section Splitting</label>
-        </div>
-        <div class="setting-group">
-          <label>Quality</label>
-          <div class="range-row">
-            <input type="range" min="0.3" max="1" step="0.05" value="0.92">
-            <span>92%</span>
+      <div class="page-card">
+        <div class="page-card-main">
+          <span class="status-dot"></span>
+          <div>
+            <div class="page-card-title">Chrome Extensions | Developers</div>
+            <div class="page-card-url">developer.chrome.com/docs/extensions</div>
           </div>
         </div>
+      </div>
+      <button class="btn-primary"><span>Gobble This Page</span><span class="btn-subtext">Screenshot + AI context pack</span></button>
+      <div class="preset-wrap" aria-label="Capture presets">
+        <div class="preset active"><strong>Balanced</strong><span>3 MB WebP</span></div>
+        <div class="preset"><strong>Fast</strong><span>Small files</span></div>
+        <div class="preset"><strong>Crisp</strong><span>High detail</span></div>
+      </div>
+      <div class="settings-toggle">
+        <span>Settings</span>
+        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
       </div>
     </div>
   </div>

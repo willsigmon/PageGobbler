@@ -26,6 +26,8 @@
   let viewportHeight = 0;
   let originalScrollY = 0;
   let originalScrollBehavior = '';
+  let originalHtmlOverflow = '';
+  let originalBodyOverflow = '';
   let settings = {};
   let fixedElements = [];
   let capturedPageInfo = null;
@@ -140,6 +142,8 @@
     document.documentElement.style.scrollBehavior = 'auto';
 
     // Hide scrollbar to avoid it appearing in captures
+    originalHtmlOverflow = document.documentElement.style.overflow;
+    originalBodyOverflow = document.body.style.overflow;
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'visible';
 
@@ -231,8 +235,8 @@
     stopConsoleCapture();
     capturedPageInfo = null;
     document.documentElement.style.scrollBehavior = originalScrollBehavior;
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    document.documentElement.style.overflow = originalHtmlOverflow;
+    document.body.style.overflow = originalBodyOverflow;
     window.scrollTo(0, originalScrollY);
   }
 
@@ -350,13 +354,13 @@
 
       const indent = '  '.repeat(depth);
       const attrs = [];
-      if (el.id) attrs.push(`id="${el.id}"`);
+      if (el.id) attrs.push(`id="${escapeHTML(el.id)}"`);
       if (el.className && typeof el.className === 'string') {
         const cls = el.className.trim();
-        if (cls) attrs.push(`class="${cls.slice(0, 80)}"`);
+        if (cls) attrs.push(`class="${escapeHTML(cls.slice(0, 80))}"`);
       }
-      if (el.getAttribute('role')) attrs.push(`role="${el.getAttribute('role')}"`);
-      if (el.getAttribute('aria-label')) attrs.push(`aria-label="${el.getAttribute('aria-label').slice(0, 60)}"`);
+      if (el.getAttribute('role')) attrs.push(`role="${escapeHTML(el.getAttribute('role'))}"`);
+      if (el.getAttribute('aria-label')) attrs.push(`aria-label="${escapeHTML(el.getAttribute('aria-label').slice(0, 60))}"`);
 
       const attrStr = attrs.length > 0 ? ' ' + attrs.join(' ') : '';
       let childHTML = '';
@@ -370,12 +374,21 @@
 
       const text = el.textContent.trim().slice(0, 60);
       if (text) {
-        return `${indent}<${tag}${attrStr}>${text}</${tag}>\n`;
+        return `${indent}<${tag}${attrStr}>${escapeHTML(text)}</${tag}>\n`;
       }
       return `${indent}<${tag}${attrStr} />\n`;
     }
 
     return walk(document.documentElement, 0).slice(0, 30000);
+  }
+
+  function escapeHTML(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   // ── Image Assets Extractor ────────────────────────────────────────────

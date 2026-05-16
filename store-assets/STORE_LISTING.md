@@ -102,13 +102,13 @@ These show up in search results and featured sections. Worth creating.
 ## Submission Checklist
 
 - [x] manifest.json is Manifest V3
-- [x] ZIP created for current version (dist/PageGobbler-v2.1.2.zip)
+- [x] ZIP created for current version (dist/PageGobbler-v2.1.3.zip)
 - [x] Privacy policy hosted (GitHub)
 - [x] Store description written
 - [x] At least 1 valid screenshot (viewer — 1280x800)
 - [ ] Chrome Developer account ($5 one-time) — https://chrome.google.com/webstore/devconsole
 - [x] Fix popup screenshot to valid dimensions
 - [x] Create required small promotional tile image
-- [ ] Upload ZIP to developer console
+- [x] Upload ZIP to developer console
 - [ ] Fill in listing details from this doc
-- [ ] Submit for review (1-3 business days)
+- [x] Submit for review (1-3 business days)

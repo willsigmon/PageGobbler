@@ -19,7 +19,11 @@ const DEFAULT_SETTINGS = {
 let captureState = null;
 let lastCaptureResult = null; // holds completed capture for viewer to fetch
 let lastCaptureTime = 0;
+let captureClearTimer = null;
+let captureDataClearTimer = null;
+let nextCaptureId = 0;
 const MIN_CAPTURE_INTERVAL_MS = 550; // Chrome enforces 2 calls/sec max (500ms); add buffer
+const CAPTURE_DATA_TTL_MS = 10 * 60 * 1000;
 const ACTIVE_CAPTURE_PHASES = new Set(['measuring', 'capturing', 'processing']);
 const RESTRICTED_URL_PATTERN = /^(chrome|chrome-extension|edge|about|brave|vivaldi|opera):/i;
 
@@ -40,7 +44,7 @@ async function applyOneClickMode() {
 
 // Fires only when popup is disabled (1-click mode)
 chrome.action.onClicked.addListener((tab) => {
-  if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://')) {
+  if (isRestrictedUrl(tab.url)) {
     chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
     chrome.action.setBadgeText({ text: 'X' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2000);
@@ -106,8 +110,12 @@ async function handleStartCapture(tabId) {
   chrome.action.setBadgeText({ text: '...' });
 
   const settings = await loadSettings();
+  clearTimeout(captureClearTimer);
+  const captureId = ++nextCaptureId;
   captureState = {
+    captureId,
     tabId,
+    windowId: tab.windowId,
     settings,
     captures: [],
     phase: 'measuring',
@@ -162,8 +170,13 @@ async function handleCaptureViewport(msg, sender) {
   }
 
   try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.active) {
+      throw new Error('Keep the tab being gobbled active until capture finishes.');
+    }
+
     lastCaptureTime = Date.now();
-    const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
       format: 'png',
       quality: 100,
     });
@@ -210,6 +223,7 @@ async function handleCaptureComplete(msg, sender) {
       timestamp: Date.now(),
       elapsedMs: Date.now() - captureState.startTime,
     };
+    scheduleCaptureDataCleanup(lastCaptureResult.timestamp);
 
     // Signal done so the popup can show completion if it is still open
     captureState.phase = 'done';
@@ -239,7 +253,12 @@ async function handleCaptureComplete(msg, sender) {
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 4000);
   } finally {
     // Delay nulling captureState so the popup can read the final state
-    setTimeout(() => { captureState = null; }, 3000);
+    const completedCaptureId = captureState?.captureId;
+    captureClearTimer = setTimeout(() => {
+      if (captureState?.captureId === completedCaptureId) {
+        captureState = null;
+      }
+    }, 3000);
   }
 }
 
@@ -272,9 +291,16 @@ function markStartFailed(message) {
 // ── Capture Data Handoff ─────────────────────────────────────────────────────
 
 function handleGetCaptureData(sendResponse) {
-  const data = lastCaptureResult;
-  lastCaptureResult = null; // one-time read
-  sendResponse({ captureData: data });
+  sendResponse({ captureData: lastCaptureResult });
+}
+
+function scheduleCaptureDataCleanup(timestamp) {
+  clearTimeout(captureDataClearTimer);
+  captureDataClearTimer = setTimeout(() => {
+    if (lastCaptureResult?.timestamp === timestamp) {
+      lastCaptureResult = null;
+    }
+  }, CAPTURE_DATA_TTL_MS);
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────

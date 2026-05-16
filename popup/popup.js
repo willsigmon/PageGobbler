@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           status.className = 'status';
-          status.textContent = 'Gobbling... keep this open or click away.';
+          status.textContent = 'Gobbling... keep the target tab active.';
           watchCaptureProgress();
         });
       });

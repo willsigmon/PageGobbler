@@ -323,6 +323,54 @@ a:focus-visible {
   cursor: zoom-in;
 }
 
+/* Intentional empty states */
+.empty-state {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 24px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(212, 118, 44, 0.10), transparent 42%),
+    linear-gradient(180deg, rgba(36, 26, 14, 0.82), rgba(26, 16, 8, 0.92));
+  border: 1px dashed var(--border-light);
+  border-radius: 12px;
+  color: var(--text-dim);
+}
+
+.empty-state-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(212, 118, 44, 0.14);
+  border: 1px solid rgba(212, 118, 44, 0.28);
+  color: var(--accent-light);
+  font-size: 20px;
+}
+
+.empty-state-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.1px;
+}
+
+.empty-state-copy {
+  max-width: 420px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.meta-grid .empty-state {
+  min-height: 180px;
+}
+
 /* Tabs */
 .tabs {
   display: flex;
@@ -500,6 +548,7 @@ a:focus-visible {
   .topbar-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+    width: 100%;
   }
 }
 
@@ -517,6 +566,10 @@ a:focus-visible {
   }
 
   .btn {
+    width: 100%;
+  }
+
+  .topbar-actions {
     width: 100%;
   }
 }

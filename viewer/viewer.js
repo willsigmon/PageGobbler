@@ -159,11 +159,18 @@ const ZipBuilder = (() => {
   }
 
   if (!captureData) {
-    setStatus('No capture data found. Gobble a page first!', 0, true);
+    setStatus('No capture data found. Gobble a page first!', 100, true);
+    renderNoCaptureState();
     return;
   }
 
   const { captures, pageInfo, settings } = captureData;
+
+  if (!Array.isArray(captures) || captures.length === 0 || !pageInfo) {
+    setStatus('Capture data was incomplete. Please gobble the page again.', 100, true);
+    renderNoCaptureState('The last capture did not include viewport images or page metadata.');
+    return;
+  }
 
   // ── Step 1: Stitch ────────────────────────────────────────────────────
 
@@ -175,6 +182,7 @@ const ZipBuilder = (() => {
   } catch (err) {
     console.error('Stitch failed:', err);
     setStatus(`Stitch error: ${err.message}`, 15, true);
+    renderNoCaptureState(err.message);
     return;
   }
 
@@ -473,6 +481,32 @@ const ZipBuilder = (() => {
       : 'Not available';
   }
 
+  function renderNoCaptureState(detail = 'Open a normal web page, click the turkey icon, then gobble it to build a screenshot and AI context pack.') {
+    summarySource.textContent = 'No active capture';
+    summarySections.textContent = '—';
+    summarySize.textContent = '—';
+    summaryAi.textContent = 'Waiting';
+
+    sectionsGrid.innerHTML = `
+      <div class="empty-state" role="status">
+        <div class="empty-state-icon" aria-hidden="true">${turkeyIconSVG()}</div>
+        <div class="empty-state-title">Nothing gobbled yet</div>
+        <p class="empty-state-copy">${escapeHTML(detail)}</p>
+      </div>
+    `;
+
+    metaGrid.innerHTML = `
+      <div class="empty-state" role="status">
+        <div class="empty-state-title">Page info will appear here</div>
+        <p class="empty-state-copy">Source URL, dimensions, headings, links, forms, assets, and design tokens populate after a successful capture.</p>
+      </div>
+    `;
+
+    aiBriefOutput.textContent = 'Gobble a page first to generate an AI-ready Markdown brief.';
+    ocrText.textContent = 'Gobble a page first to extract visible page text.';
+    jsonOutput.textContent = JSON.stringify({ status: 'waiting_for_capture' }, null, 2);
+  }
+
   // ── Utility Functions ─────────────────────────────────────────────────
 
   function setStatus(text, pct, isError = false) {
@@ -694,6 +728,37 @@ const ZipBuilder = (() => {
     } catch (_) {
       return '';
     }
+  }
+
+  function escapeHTML(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function turkeyIconSVG() {
+    return `
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+        <path d="M16 4 Q10 1 7 6 Q10 6 12 10" fill="#C0392B"/>
+        <path d="M16 4 Q22 1 25 6 Q22 6 20 10" fill="#C0392B"/>
+        <path d="M16 3 Q8 2 6 8 Q10 7 13 10" fill="#D4762C"/>
+        <path d="M16 3 Q24 2 26 8 Q22 7 19 10" fill="#D4762C"/>
+        <path d="M16 2 Q12 3 10 8 Q13 7 15 10" fill="#E8A849"/>
+        <path d="M16 2 Q20 3 22 8 Q19 7 17 10" fill="#E8A849"/>
+        <ellipse cx="16" cy="18" rx="7" ry="8" fill="#8B4513"/>
+        <ellipse cx="16" cy="17" rx="5.5" ry="6" fill="#A0522D"/>
+        <circle cx="16" cy="11" r="3.5" fill="#D2691E"/>
+        <path d="M15 12.5 L16 14 L17 12.5" fill="#E8A849" stroke="#D4762C" stroke-width="0.3"/>
+        <path d="M16 14 Q16.5 15.5 16 16.5" stroke="#C0392B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+        <circle cx="14.5" cy="10.5" r="0.8" fill="#1a1008"/>
+        <circle cx="17.5" cy="10.5" r="0.8" fill="#1a1008"/>
+        <circle cx="14.8" cy="10.3" r="0.25" fill="#fff"/>
+        <circle cx="17.8" cy="10.3" r="0.25" fill="#fff"/>
+      </svg>
+    `;
   }
 
   function buildAIBrief(info, metadata, text, sectionList, settings) {
