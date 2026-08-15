@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const pageCard = document.getElementById('page-card');
   const pageTitle = document.getElementById('page-title');
   const pageUrl = document.getElementById('page-url');
+  const pageStatusWord = document.getElementById('page-status-word');
   const qualitySlider = document.getElementById('set-quality');
   const qualityLabel = document.getElementById('quality-label');
   const oneClickCheckbox = document.getElementById('set-oneclick');
@@ -99,26 +100,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function updateOneClickHint(enabled) {
-    if (enabled) {
-      oneClickHint.textContent = 'Enabled — this popup won\'t open. Click turkey icon to gobble instantly.';
-      oneClickHint.style.color = '#E8A849';
-    } else {
-      oneClickHint.textContent = 'Click the turkey icon to instantly gobble — no popup.';
-      oneClickHint.style.color = '';
-    }
+    oneClickHint.classList.toggle('is-on', enabled);
+    oneClickHint.textContent = enabled
+      ? 'Enabled — this popup won’t open. Click the turkey icon to gobble instantly.'
+      : 'Click the turkey icon to gobble instantly — no popup.';
   }
 
   // ── Settings toggle ───────────────────────────────────────────────────
 
   settingsToggle.addEventListener('click', () => {
     toggleSettings();
-  });
-
-  settingsToggle.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      toggleSettings();
-    }
   });
 
   // ── Capture button ────────────────────────────────────────────────────
@@ -165,8 +156,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Helpers ─────────────────────────────────────────────────────────
 
   function renderActiveTab(tab) {
+    pageCard.classList.remove('ready', 'blocked');
+
     if (!tab) {
       pageCard.classList.add('blocked');
+      pageStatusWord.textContent = 'Blocked';
       pageTitle.textContent = 'No active tab found';
       pageUrl.textContent = 'Open a normal web page, then try again.';
       btnCapture.disabled = true;
@@ -174,7 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const blocked = isCaptureBlocked(tab.url);
-    pageCard.classList.toggle('blocked', blocked);
+    pageCard.classList.add(blocked ? 'blocked' : 'ready');
+    pageStatusWord.textContent = blocked ? 'Blocked' : 'Ready';
     pageTitle.textContent = blocked ? 'This page cannot be gobbled' : (tab.title || 'Ready to gobble this page');
     pageUrl.textContent = blocked ? 'Chrome blocks extension capture here.' : readableUrl(tab.url);
     btnCapture.disabled = blocked;
@@ -194,10 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function toggleSettings() {
-    const open = !settingsPanel.classList.contains('open');
-    settingsToggle.classList.toggle('open', open);
-    settingsPanel.classList.toggle('open', open);
-    settingsToggle.setAttribute('aria-expanded', String(open));
+    const willOpen = settingsPanel.hidden;
+    settingsPanel.hidden = !willOpen;
+    settingsToggle.classList.toggle('open', willOpen);
+    settingsToggle.setAttribute('aria-expanded', String(willOpen));
   }
 
   function applySettings(s) {
@@ -234,7 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const current = gatherSettings();
     presetButtons.forEach((button) => {
       const preset = PRESETS[button.dataset.preset];
-      button.classList.toggle('active', Boolean(preset && matchesPreset(current, preset)));
+      const isActive = Boolean(preset && matchesPreset(current, preset));
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
     });
   }
 

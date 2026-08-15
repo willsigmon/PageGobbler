@@ -6,48 +6,47 @@
   <style>
     :root {
       --bg: #120c06; --surface: #1a1008; --surface2: #241a0e; --surface3: #2e2114;
-      --border: #3d2e1a; --border-light: #4d3a24; --text: #F5E6D0; --text-mid: #D4C4A8;
-      --text-dim: #9C8A74; --accent: #D4762C; --accent-light: #E8A849; --accent-deep: #8B4513;
-      --success: #27ae60; --red: #C0392B;
+      --border: #8A7358; --border-light: #9A8060; --text: #F5E6D0; --text-mid: #D4C4A8;
+      --text-dim: #D4C4A8; --accent: #D4762C; --accent-light: #E8A849; --accent-deep: #8B4513;
+      --success: #D4762C; --red: #C0392B;
+      --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      --font-body: "Segoe UI", system-ui, sans-serif;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background:
-        radial-gradient(circle at 10% -15%, rgba(232, 168, 73, 0.12), transparent 34%),
-        radial-gradient(circle at 95% -10%, rgba(192, 57, 43, 0.12), transparent 30%),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--font-body);
       font-size: 14px;
       line-height: 1.5;
     }
     .app { min-height: 100vh; display: flex; flex-direction: column; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%); border-bottom: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; background: var(--surface2); border-bottom: 1px solid var(--border); }
     .topbar-left { display: flex; align-items: center; gap: 12px; }
-    .topbar-left h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; background: linear-gradient(135deg, #E8A849 0%, #D4762C 50%, #C0392B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .topbar-left h1 { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
     .topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    .btn { padding: 9px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
-    .btn-primary { background: linear-gradient(135deg, #D4762C, #C0392B); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); box-shadow: 0 2px 8px rgba(192,57,43,0.3); }
+    .btn { min-height: 44px; padding: 10px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: #1a1008; }
     .btn-secondary { background: var(--surface3); color: var(--text-mid); border: 1px solid var(--border); }
     .status-bar { padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border); }
-    .status-text { font-size: 13px; color: var(--success); margin-bottom: 8px; font-weight: 500; }
+    .status-text { font-size: 13px; color: var(--accent-light); margin-bottom: 8px; font-weight: 500; }
     .progress-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
-    .progress-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #1e8449, var(--success), #2ecc71); border-radius: 2px; }
+    .progress-fill { height: 100%; width: 100%; background: var(--accent); border-radius: 2px; }
     .summary-strip { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 12px; padding: 16px 28px; background: rgba(18, 12, 6, 0.76); border-bottom: 1px solid var(--border); }
-    .summary-card { background: linear-gradient(180deg, rgba(36, 26, 14, 0.96), rgba(26, 16, 8, 0.96)); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; min-width: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+    .summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
     .summary-label { display: block; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px; }
     .summary-card strong { display: block; color: var(--text); font-size: 13px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .summary-card:first-child strong { color: var(--accent-light); }
     .main { display: flex; flex: 1; }
     .panel { padding: 24px 28px; overflow-y: auto; }
     .panel h2 { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
-    .panel h2::before { content: ''; display: inline-block; width: 3px; height: 14px; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border-radius: 2px; }
+    .panel h2::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); border-radius: 1px; }
     .panel-images { flex: 3; border-right: 1px solid var(--border); }
     .panel-data { flex: 2; min-width: 380px; max-width: 520px; }
     .sections-grid { display: flex; flex-direction: column; gap: 20px; }
     .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-    .section-card-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: linear-gradient(180deg, var(--surface3), var(--surface2)); font-size: 12px; border-bottom: 1px solid var(--border); }
-    .badge { background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+    .section-card-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--surface3); font-size: 12px; border-bottom: 1px solid var(--border); }
+    .badge { background: var(--accent); color: #1a1008; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; }
     .size { color: var(--text-dim); font-size: 11px; margin-left: 8px; }
     .section-card-actions { display: flex; gap: 6px; }
     .section-card-actions button { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; }
@@ -79,13 +78,7 @@
   <div class="app">
     <header class="topbar">
       <div class="topbar-left">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-          <path d="M16 4 Q10 1 7 6 Q10 6 12 10" fill="#C0392B"/><path d="M16 4 Q22 1 25 6 Q22 6 20 10" fill="#C0392B"/><path d="M16 3 Q8 2 6 8 Q10 7 13 10" fill="#D4762C"/><path d="M16 3 Q24 2 26 8 Q22 7 19 10" fill="#D4762C"/><path d="M16 2 Q12 3 10 8 Q13 7 15 10" fill="#E8A849"/><path d="M16 2 Q20 3 22 8 Q19 7 17 10" fill="#E8A849"/>
-          <ellipse cx="16" cy="18" rx="7" ry="8" fill="#8B4513"/><ellipse cx="16" cy="17" rx="5.5" ry="6" fill="#A0522D"/><circle cx="16" cy="11" r="3.5" fill="#D2691E"/>
-          <path d="M15 12.5 L16 14 L17 12.5" fill="#E8A849" stroke="#D4762C" stroke-width="0.3"/><path d="M16 14 Q16.5 15.5 16 16.5" stroke="#C0392B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-          <circle cx="14.5" cy="10.5" r="0.8" fill="#1a1008"/><circle cx="17.5" cy="10.5" r="0.8" fill="#1a1008"/><circle cx="14.8" cy="10.3" r="0.25" fill="#fff"/><circle cx="17.8" cy="10.3" r="0.25" fill="#fff"/>
-          <path d="M13 25 L12 28 M13 25 L13 28.5 M13 25 L14 28" stroke="#D4762C" stroke-width="1" stroke-linecap="round"/><path d="M19 25 L18 28 M19 25 L19 28.5 M19 25 L20 28" stroke="#D4762C" stroke-width="1" stroke-linecap="round"/>
-        </svg>
+        <img src="../icons/turkey-32.svg" width="28" height="28" alt="">
         <h1>PageGobbler</h1>
       </div>
       <div class="topbar-actions">

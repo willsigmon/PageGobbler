@@ -45,6 +45,7 @@ async function applyOneClickMode() {
 // Fires only when popup is disabled (1-click mode)
 chrome.action.onClicked.addListener((tab) => {
   if (isRestrictedUrl(tab.url)) {
+    chrome.action.setBadgeTextColor({ color: '#F5E6D0' });
     chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
     chrome.action.setBadgeText({ text: 'X' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2000);
@@ -106,6 +107,7 @@ async function handleStartCapture(tabId) {
   }
 
   // Badge: show capturing state
+  chrome.action.setBadgeTextColor({ color: '#1a1008' });
   chrome.action.setBadgeBackgroundColor({ color: '#D4762C' });
   chrome.action.setBadgeText({ text: '...' });
 
@@ -238,7 +240,8 @@ async function handleCaptureComplete(msg, sender) {
     chrome.tabs.sendMessage(tabId, { action: 'capture-done' });
 
     // Badge: brief success indicator
-    chrome.action.setBadgeBackgroundColor({ color: '#27ae60' });
+    chrome.action.setBadgeTextColor({ color: '#1a1008' });
+    chrome.action.setBadgeBackgroundColor({ color: '#D4762C' });
     chrome.action.setBadgeText({ text: '✓' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
   } catch (err) {
@@ -248,6 +251,7 @@ async function handleCaptureComplete(msg, sender) {
       captureState.error = err.message;
     }
     chrome.tabs.sendMessage(tabId, { action: 'capture-error', error: err.message });
+    chrome.action.setBadgeTextColor({ color: '#F5E6D0' });
     chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
     chrome.action.setBadgeText({ text: 'X' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }), 4000);
@@ -282,6 +286,7 @@ function isRestrictedUrl(url = '') {
 }
 
 function markStartFailed(message) {
+  chrome.action.setBadgeTextColor({ color: '#F5E6D0' });
   chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
   chrome.action.setBadgeText({ text: '!' });
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2500);

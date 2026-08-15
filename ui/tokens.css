@@ -1,0 +1,80 @@
+/* PageGobbler roast tokens — OKLCH, WCAG 2.2 AA floor.
+   Popup is dark-only (Chrome extension chrome). Viewer shares the same set. */
+
+:root {
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-body: "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "SF Mono", "Fira Code", ui-monospace, monospace;
+
+  --color-bg: oklch(18.4% 0.023 59.6);
+  --color-bg-deep: oklch(16.0% 0.017 68.6);
+  --color-surface: oklch(22.7% 0.026 70.7);
+  --color-surface-2: oklch(26.0% 0.030 65.6);
+  --color-ink: oklch(93.1% 0.033 76.5);
+  --color-muted: oklch(82.6% 0.041 81.0);
+  --color-accent: oklch(65.9% 0.144 54.3);
+  --color-accent-hover: oklch(77.5% 0.133 74.0);
+  --color-accent-ink: oklch(18.4% 0.023 59.6);
+  --color-accent-deep: oklch(47.1% 0.112 50.8);
+  --color-tan: oklch(74.6% 0.092 70.8);
+  --color-border: oklch(57.0% 0.048 70.7);
+  --color-border-strong: var(--color-accent);
+  --color-focus: var(--color-accent-hover);
+  --color-danger: oklch(54.3% 0.174 29.6);
+  --color-danger-text: oklch(74.5% 0.107 28.1);
+  --color-ready: var(--color-accent);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  --radius: 8px;
+  --radius-card: 10px;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 160ms;
+  --target: 44px;
+
+  --bg: var(--color-bg-deep);
+  --surface: var(--color-bg);
+  --surface2: var(--color-surface);
+  --surface3: var(--color-surface-2);
+  --border: var(--color-border);
+  --border-light: oklch(62% 0.05 70);
+  --text: var(--color-ink);
+  --text-mid: var(--color-muted);
+  --text-dim: var(--color-muted);
+  --accent: var(--color-accent);
+  --accent-light: var(--color-accent-hover);
+  --accent-deep: var(--color-accent-deep);
+  --success: var(--color-accent);
+  --error: var(--color-danger);
+  --red: var(--color-danger);
+}
+
+.roast-app {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.roast-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0.03;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

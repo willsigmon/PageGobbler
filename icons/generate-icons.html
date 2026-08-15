@@ -1,164 +1,172 @@
 <!DOCTYPE html>
-<html>
-<head><title>PageGobbler — Icon Generator</title></head>
-<body style="background: #1a1008; color: #F5E6D0; font-family: -apple-system, sans-serif; padding: 24px;">
-<h1 style="color: #E8A849;">PageGobbler Icon Generator</h1>
-<p>Right-click each canvas and "Save image as" to create PNG icons, or use the download links.</p>
-<div id="icons" style="display: flex; gap: 32px; align-items: flex-end; margin-top: 24px;"></div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PageGobbler — Icon Generator</title>
+  <style>
+    :root {
+      --bg: #1a1008;
+      --ink: #F5E6D0;
+      --muted: #D4C4A8;
+      --copper: #D4762C;
+      --gold: #E8A849;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    }
+    h1 { color: var(--ink); font-size: 28px; letter-spacing: -0.03em; margin: 0 0 8px; }
+    p { font-family: "Segoe UI", system-ui, sans-serif; color: var(--muted); max-width: 52ch; }
+    code { color: var(--gold); }
+    #icons { display: flex; gap: 32px; align-items: flex-end; flex-wrap: wrap; margin-top: 24px; }
+    .tile { text-align: center; font-family: "Segoe UI", system-ui, sans-serif; }
+    .tile strong { display: block; margin-bottom: 8px; color: var(--copper); }
+    canvas { image-rendering: pixelated; border: 1px solid #8A7358; border-radius: 8px; background: #2e2114; }
+    a { color: var(--gold); }
+  </style>
+</head>
+<body>
+  <h1>PageGobbler icon generator</h1>
+  <p>Toolbar turkeys, size-aware: 16px is a silhouette + three feathers. Pipeline: <code>node icons/generate-icons.mjs</code> writes the PNGs. This page is the visual check.</p>
+  <div id="icons"></div>
 <script>
 const sizes = [16, 32, 48, 128];
+const C = {
+  roast: '#1a1008',
+  copper: '#D4762C',
+  gold: '#E8A849',
+  red: '#C0392B',
+  body: '#8B4513',
+  breast: '#A0522D',
+  tan: '#D2A36A',
+  parchment: '#F5E6D0',
+};
 
-sizes.forEach(size => {
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawTurkey(ctx, size) {
+  const u = (n) => (n / 32) * size;
+  const ellipse = (cx, cy, rx, ry, fill) => {
+    ctx.beginPath();
+    ctx.ellipse(u(cx), u(cy), u(rx), u(ry), 0, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+
+  if (size >= 48) {
+    ellipse(4.8, 13.5, 3.6, 8.6, C.red);
+    ellipse(27.2, 13.5, 3.6, 8.6, C.red);
+  }
+  ellipse(8.2, 13.4, 3.6, 8.8, C.red);
+  ellipse(23.8, 13.4, 3.6, 8.8, C.copper);
+  ellipse(16, 11.8, 3.8, 9.4, C.gold);
+  ellipse(16, 22.0, 7.4, 6.4, C.body);
+  ellipse(16, 21.2, 5.4, 4.8, C.breast);
+  ctx.beginPath();
+  ctx.arc(u(16), u(14.6), u(4.8), 0, Math.PI * 2);
+  ctx.fillStyle = C.tan;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(u(14.0), u(16.6));
+  ctx.lineTo(u(16), u(19.6));
+  ctx.lineTo(u(18.0), u(16.6));
+  ctx.closePath();
+  ctx.fillStyle = C.gold;
+  ctx.fill();
+  if (size >= 32) {
+    ellipse(17.2, 19.6, 1.35, 2.1, C.red);
+    ctx.beginPath();
+    ctx.arc(u(14.2), u(13.7), u(1.15), 0, Math.PI * 2);
+    ctx.fillStyle = C.roast;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(u(17.8), u(13.7), u(1.15), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (size >= 128) {
+    ctx.beginPath();
+    ctx.arc(u(14.55), u(13.3), u(0.36), 0, Math.PI * 2);
+    ctx.fillStyle = C.parchment;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(u(18.15), u(13.3), u(0.36), 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+sizes.forEach((size) => {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  const s = size;
-
-  // Background: warm dark rounded rect
-  const pad = s * 0.04;
-  const r = s * 0.18;
-  ctx.beginPath();
-  roundRect(ctx, pad, pad, s - pad * 2, s - pad * 2, r);
-  const bgGrad = ctx.createLinearGradient(0, 0, s, s);
-  bgGrad.addColorStop(0, '#2e2114');
-  bgGrad.addColorStop(1, '#1a1008');
-  ctx.fillStyle = bgGrad;
-  ctx.fill();
-
-  // Subtle border
-  ctx.lineWidth = Math.max(1, s * 0.015);
-  ctx.strokeStyle = 'rgba(212, 118, 44, 0.4)';
-  ctx.stroke();
-
-  const cx = s * 0.5;
-  const cy = s * 0.52;
-
-  // Tail feathers (fan behind body)
-  const featherSize = s * 0.28;
-  drawFeather(ctx, cx, cy - s * 0.18, -0.6, featherSize, '#C0392B');
-  drawFeather(ctx, cx, cy - s * 0.18, 0.6, featherSize, '#C0392B');
-  drawFeather(ctx, cx, cy - s * 0.2, -0.35, featherSize * 0.95, '#D4762C');
-  drawFeather(ctx, cx, cy - s * 0.2, 0.35, featherSize * 0.95, '#D4762C');
-  drawFeather(ctx, cx, cy - s * 0.22, -0.1, featherSize * 0.85, '#E8A849');
-  drawFeather(ctx, cx, cy - s * 0.22, 0.1, featherSize * 0.85, '#E8A849');
-
-  // Body
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + s * 0.05, s * 0.2, s * 0.24, 0, 0, Math.PI * 2);
-  const bodyGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy + s * 0.05, s * 0.24);
-  bodyGrad.addColorStop(0, '#A0522D');
-  bodyGrad.addColorStop(1, '#8B4513');
-  ctx.fillStyle = bodyGrad;
-  ctx.fill();
-
-  // Head
-  const headY = cy - s * 0.15;
-  ctx.beginPath();
-  ctx.arc(cx, headY, s * 0.1, 0, Math.PI * 2);
-  ctx.fillStyle = '#D2691E';
-  ctx.fill();
-
-  // Beak
-  ctx.beginPath();
-  ctx.moveTo(cx - s * 0.03, headY + s * 0.06);
-  ctx.lineTo(cx, headY + s * 0.1);
-  ctx.lineTo(cx + s * 0.03, headY + s * 0.06);
-  ctx.closePath();
-  ctx.fillStyle = '#E8A849';
-  ctx.fill();
-
-  // Snood
-  if (s >= 48) {
-    ctx.beginPath();
-    ctx.moveTo(cx, headY + s * 0.1);
-    ctx.quadraticCurveTo(cx + s * 0.02, headY + s * 0.15, cx, headY + s * 0.17);
-    ctx.strokeStyle = '#C0392B';
-    ctx.lineWidth = Math.max(1, s * 0.025);
-    ctx.lineCap = 'round';
+  if (size === 16) {
+    ctx.imageSmoothingEnabled = false;
+    const px = (x, y, fill) => { ctx.fillStyle = fill; ctx.fillRect(x, y, 1, 1); };
+    ctx.fillStyle = C.roast;
+    ctx.fillRect(0, 0, 16, 16);
+    for (let i = 1; i < 15; i++) {
+      px(i, 0, C.copper); px(i, 15, C.copper);
+      px(0, i, C.copper); px(15, i, C.copper);
+    }
+    px(1, 1, C.copper); px(14, 1, C.copper);
+    px(1, 14, C.copper); px(14, 14, C.copper);
+    for (let y = 3; y <= 7; y++) { px(3, y, C.red); px(4, y, C.red); }
+    px(3, 3, C.roast); px(4, 2, C.red);
+    for (let y = 2; y <= 6; y++) { px(7, y, C.gold); px(8, y, C.gold); }
+    px(7, 2, C.roast); px(8, 1, C.gold);
+    for (let y = 3; y <= 7; y++) { px(11, y, C.copper); px(12, y, C.copper); }
+    px(12, 3, C.roast); px(11, 2, C.copper);
+    for (let y = 6; y <= 10; y++) {
+      for (let x = 6; x <= 10; x++) {
+        if ((x - 8) ** 2 + (y - 8) ** 2 <= 5) px(x, y, C.tan);
+      }
+    }
+    px(8, 10, C.gold); px(7, 10, C.gold); px(9, 10, C.gold);
+    for (let y = 11; y <= 13; y++) {
+      for (let x = 5; x <= 11; x++) {
+        if ((y === 11 || y === 13) && (x === 5 || x === 11)) continue;
+        px(x, y, C.body);
+      }
+    }
+    for (let x = 6; x <= 10; x++) px(x, 11, C.breast);
+  } else {
+    const pad = size * 0.05;
+    const rad = size * 0.2;
+    roundRect(ctx, pad, pad, size - pad * 2, size - pad * 2, rad);
+    ctx.fillStyle = C.roast;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, size * 0.018);
+    ctx.strokeStyle = 'rgba(212, 118, 44, 0.7)';
     ctx.stroke();
+    drawTurkey(ctx, size);
   }
 
-  // Eyes
-  if (s >= 32) {
-    const eyeR = Math.max(1, s * 0.02);
-    ctx.beginPath();
-    ctx.arc(cx - s * 0.04, headY - s * 0.01, eyeR, 0, Math.PI * 2);
-    ctx.fillStyle = '#1a1008';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx + s * 0.04, headY - s * 0.01, eyeR, 0, Math.PI * 2);
-    ctx.fillStyle = '#1a1008';
-    ctx.fill();
-  }
-
-  // Feet
-  if (s >= 32) {
-    ctx.strokeStyle = '#D4762C';
-    ctx.lineWidth = Math.max(1, s * 0.02);
-    ctx.lineCap = 'round';
-    const footY = cy + s * 0.28;
-    [-0.08, 0.08].forEach(xOff => {
-      const fx = cx + s * xOff;
-      [-0.03, 0, 0.03].forEach(toe => {
-        ctx.beginPath();
-        ctx.moveTo(fx, footY);
-        ctx.lineTo(fx + s * toe, footY + s * 0.06);
-        ctx.stroke();
-      });
-    });
-  }
-
-  // Render to page
-  const container = document.getElementById('icons');
   const wrapper = document.createElement('div');
-  wrapper.style.textAlign = 'center';
-
-  const label = document.createElement('div');
-  label.style.cssText = 'margin-bottom: 8px; font-weight: 600; color: #D4762C;';
+  wrapper.className = 'tile';
+  const label = document.createElement('strong');
   label.textContent = `icon${size}.png`;
-
-  canvas.style.border = '1px solid #3d2e1a';
-  canvas.style.borderRadius = '8px';
+  const zoom = Math.max(size * 2, 96);
+  canvas.style.width = `${zoom}px`;
+  canvas.style.height = `${zoom}px`;
   canvas.style.imageRendering = size <= 32 ? 'pixelated' : 'auto';
-  const displaySize = Math.max(size * 1.5, 80);
-  canvas.style.width = `${displaySize}px`;
-  canvas.style.height = `${displaySize}px`;
-
   const link = document.createElement('a');
   link.download = `icon${size}.png`;
   link.href = canvas.toDataURL('image/png');
   link.textContent = 'download';
-  link.style.cssText = 'display: block; margin-top: 8px; color: #E8A849; font-size: 13px;';
-
-  wrapper.appendChild(label);
-  wrapper.appendChild(canvas);
-  wrapper.appendChild(link);
-  container.appendChild(wrapper);
+  wrapper.append(label, canvas, link);
+  document.getElementById('icons').appendChild(wrapper);
 });
-
-function drawFeather(ctx, x, y, angle, length, color) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.beginPath();
-  ctx.ellipse(0, -length * 0.5, length * 0.25, length * 0.5, 0, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.restore();
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-}
 </script>
 </body>
 </html>

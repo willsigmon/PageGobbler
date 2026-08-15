@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-labelledby="turkey-32-title">
+  <title id="turkey-32-title">PageGobbler turkey</title>
+  <ellipse cx="8.2" cy="13.4" rx="3.6" ry="8.8" fill="#C0392B"/>
+  <ellipse cx="23.8" cy="13.4" rx="3.6" ry="8.8" fill="#D4762C"/>
+  <ellipse cx="16" cy="11.8" rx="3.8" ry="9.4" fill="#E8A849"/>
+  <ellipse cx="16" cy="22" rx="7.4" ry="6.4" fill="#8B4513"/>
+  <ellipse cx="16" cy="21.2" rx="5.4" ry="4.8" fill="#A0522D"/>
+  <circle cx="16" cy="14.6" r="4.8" fill="#D2A36A"/>
+  <path d="M14 16.6 L16 19.6 L18 16.6 Z" fill="#E8A849"/>
+  <ellipse cx="17.2" cy="19.6" rx="1.35" ry="2.1" fill="#C0392B"/>
+  <circle cx="14.2" cy="13.7" r="1.15" fill="#1a1008"/>
+  <circle cx="17.8" cy="13.7" r="1.15" fill="#1a1008"/>
+</svg>
