@@ -3,8 +3,14 @@
  * Orchestrates the full-page screenshot capture pipeline:
  *   1. Tells content script to measure page & start scrolling
  *   2. Captures each viewport via chrome.tabs.captureVisibleTab
- *   3. Holds result in memory for the viewer to fetch via messaging
+ *   3. Saves the finished capture to the extension's IndexedDB and opens the
+ *      viewer at viewer.html?id=<captureId>; the viewer reads it from there,
+ *      so results survive the service worker being stopped.
  */
+
+import './lib/capture-store.js';
+
+const CaptureStore = globalThis.PageGobblerCaptureStore;
 
 const DEFAULT_SETTINGS = {
   quality: 0.92,          // jpeg/webp quality
@@ -17,15 +23,15 @@ const DEFAULT_SETTINGS = {
 };
 
 let captureState = null;
-let lastCaptureResult = null; // holds completed capture for viewer to fetch
 let lastCaptureTime = 0;
 let captureClearTimer = null;
-let captureDataClearTimer = null;
-let nextCaptureId = 0;
 const MIN_CAPTURE_INTERVAL_MS = 550; // Chrome enforces 2 calls/sec max (500ms); add buffer
-const CAPTURE_DATA_TTL_MS = 10 * 60 * 1000;
 const ACTIVE_CAPTURE_PHASES = new Set(['measuring', 'capturing', 'processing']);
 const RESTRICTED_URL_PATTERN = /^(chrome|chrome-extension|edge|about|brave|vivaldi|opera):/i;
+
+// Drop stale captures every time the worker starts (it starts on demand, so
+// this runs regularly without timers that die with the worker).
+pruneStoredCaptures();
 
 // ── 1-Click Mode ────────────────────────────────────────────────────────────
 
@@ -59,7 +65,6 @@ chrome.action.onClicked.addListener((tab) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Handlers that call sendResponse need the channel kept open (return true)
   const asyncHandlers = {
-    'get-capture-data': () => handleGetCaptureData(sendResponse),
     'get-progress': () => handleGetProgress(sendResponse),
     'get-settings': () => handleGetSettings(sendResponse),
     'save-settings': () => handleSaveSettings(msg.settings, sendResponse),
@@ -113,7 +118,7 @@ async function handleStartCapture(tabId) {
 
   const settings = await loadSettings();
   clearTimeout(captureClearTimer);
-  const captureId = ++nextCaptureId;
+  const captureId = CaptureStore.createCaptureId();
   captureState = {
     captureId,
     tabId,
@@ -211,28 +216,34 @@ async function handleCaptureComplete(msg, sender) {
   const pageInfo = msg.pageInfo;
 
   try {
-    // Hold result in memory — viewer fetches via 'get-capture-data' message
-    lastCaptureResult = {
-      captures: captures.map(c => ({
-        dataUrl: c.dataUrl,
+    const captureId = captureState.captureId;
+    const createdAt = Date.now();
+    const record = {
+      id: captureId,
+      createdAt,
+      captures: await Promise.all(captures.map(async (c) => ({
+        ...(await storableImage(c.dataUrl)),
         scrollY: c.scrollY,
         viewportHeight: c.viewportHeight,
         clipHeight: c.clipHeight,
         index: c.index,
-      })),
+      }))),
       pageInfo,
       settings,
-      timestamp: Date.now(),
-      elapsedMs: Date.now() - captureState.startTime,
+      timestamp: createdAt,
+      elapsedMs: createdAt - captureState.startTime,
     };
-    scheduleCaptureDataCleanup(lastCaptureResult.timestamp);
+
+    // Persist before opening the viewer: it reads straight from IndexedDB.
+    await CaptureStore.saveCapture(record);
+    captureState.captures = [];
+    await pruneStoredCaptures();
 
     // Signal done so the popup can show completion if it is still open
     captureState.phase = 'done';
 
-    // Open viewer — it will request the data via messaging
     await chrome.tabs.create({
-      url: chrome.runtime.getURL('viewer/viewer.html'),
+      url: chrome.runtime.getURL(`viewer/viewer.html?id=${encodeURIComponent(captureId)}`),
       active: true,
     });
 
@@ -293,19 +304,25 @@ function markStartFailed(message) {
   return { ok: false, error: message };
 }
 
-// ── Capture Data Handoff ─────────────────────────────────────────────────────
+// ── Capture Storage ──────────────────────────────────────────────────────────
 
-function handleGetCaptureData(sendResponse) {
-  sendResponse({ captureData: lastCaptureResult });
+// Screenshots arrive as PNG data URLs; store them as Blobs (about 25% smaller
+// than base64 and cheap for IndexedDB). Fall back to the data URL if needed.
+async function storableImage(dataUrl) {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    return { blob };
+  } catch (_) {
+    return { dataUrl };
+  }
 }
 
-function scheduleCaptureDataCleanup(timestamp) {
-  clearTimeout(captureDataClearTimer);
-  captureDataClearTimer = setTimeout(() => {
-    if (lastCaptureResult?.timestamp === timestamp) {
-      lastCaptureResult = null;
-    }
-  }, CAPTURE_DATA_TTL_MS);
+async function pruneStoredCaptures() {
+  try {
+    await CaptureStore.pruneCaptures();
+  } catch (err) {
+    console.warn('PageGobbler: could not prune stored captures:', err);
+  }
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────
