@@ -6,7 +6,8 @@
  *   - Signaling the background to capture each viewport
  *   - Collecting page context metadata (title, URL, headings, meta)
  *   - Hiding fixed/sticky elements after first capture to avoid duplication
- *   - Capturing console output ONLY during active capture
+ *   - Collecting the page's console output ONLY during active capture
+ *     (relayed from a MAIN-world hook injected by the background worker)
  *
  * IMPORTANT: Chrome enforces a hard limit of 2 captureVisibleTab calls/sec.
  * The background worker handles this, but we add a 350ms settle delay here
@@ -32,88 +33,80 @@
   let fixedElements = [];
   let capturedPageInfo = null;
 
-  // Console capture state — only active during capture
+  // Console capture state — only active during capture. The content script
+  // runs in an isolated world, so the page's own console calls are observed by
+  // a MAIN-world hook the background injects (see pageConsoleHook in
+  // background.js) and relayed here over window.postMessage on a per-capture
+  // channel token.
   let capturedConsole = [];
-  let originalConsole = {};
-  let consoleCapturing = false;
-  let errorHandler = null;
-  let rejectionHandler = null;
+  let consoleToken = null;
+  let consoleListener = null;
+  const CONSOLE_STOP_TIMEOUT_MS = 500;
 
   // ── Console Capture (on-demand only) ─────────────────────────────────
 
-  function startConsoleCapture() {
-    if (consoleCapturing) return;
-    consoleCapturing = true;
+  function startConsoleCapture(token) {
+    stopConsoleCapture();
     capturedConsole = [];
+    if (!token) return;
 
-    ['log', 'warn', 'error', 'info', 'debug'].forEach((method) => {
-      originalConsole[method] = console[method].bind(console);
-      console[method] = (...args) => {
-        if (capturedConsole.length < MAX_CONSOLE_ENTRIES) {
-          capturedConsole.push({
-            level: method,
-            timestamp: new Date().toISOString(),
-            message: args.map(a => {
-              try {
-                return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a);
-              } catch (_) {
-                return String(a);
-              }
-            }).join(' '),
-          });
-        }
-        originalConsole[method](...args);
-      };
-    });
-
-    errorHandler = (e) => {
-      if (capturedConsole.length < MAX_CONSOLE_ENTRIES) {
-        capturedConsole.push({
-          level: 'uncaught-error',
-          timestamp: new Date().toISOString(),
-          message: `${e.message} at ${e.filename}:${e.lineno}:${e.colno}`,
-        });
-      }
+    consoleToken = token;
+    consoleListener = (event) => {
+      const data = event.data;
+      if (event.source !== window || !data || data.channel !== consoleToken) return;
+      if (data.type !== 'entry' || !data.entry) return;
+      if (capturedConsole.length >= MAX_CONSOLE_ENTRIES) return;
+      const { level, timestamp, message } = data.entry;
+      capturedConsole.push({
+        level: String(level || 'log'),
+        timestamp: String(timestamp || new Date().toISOString()),
+        message: String(message ?? ''),
+      });
     };
-
-    rejectionHandler = (e) => {
-      if (capturedConsole.length < MAX_CONSOLE_ENTRIES) {
-        capturedConsole.push({
-          level: 'unhandled-rejection',
-          timestamp: new Date().toISOString(),
-          message: String(e.reason),
-        });
-      }
-    };
-
-    window.addEventListener('error', errorHandler);
-    window.addEventListener('unhandledrejection', rejectionHandler);
+    window.addEventListener('message', consoleListener);
   }
 
+  /**
+   * Ask the MAIN-world hook to restore the page's console, and resolve once it
+   * acknowledges. window.postMessage delivers in order, so every entry the page
+   * logged before the stop has been received by then.
+   */
   function stopConsoleCapture() {
-    if (!consoleCapturing) return;
-    consoleCapturing = false;
+    if (!consoleToken) return Promise.resolve();
+    const token = consoleToken;
+    const listener = consoleListener;
 
-    Object.entries(originalConsole).forEach(([method, fn]) => {
-      console[method] = fn;
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        window.removeEventListener('message', onAck);
+        window.removeEventListener('message', listener);
+        if (consoleToken === token) {
+          consoleToken = null;
+          consoleListener = null;
+        }
+        resolve();
+      };
+      const onAck = (event) => {
+        const data = event.data;
+        if (event.source === window && data && data.channel === token && data.type === 'stopped') {
+          finish();
+        }
+      };
+      const timer = setTimeout(finish, CONSOLE_STOP_TIMEOUT_MS);
+      window.addEventListener('message', onAck);
+      window.postMessage({ channel: token, type: 'stop' }, '*');
     });
-    originalConsole = {};
-
-    if (errorHandler) {
-      window.removeEventListener('error', errorHandler);
-      errorHandler = null;
-    }
-    if (rejectionHandler) {
-      window.removeEventListener('unhandledrejection', rejectionHandler);
-      rejectionHandler = null;
-    }
   }
 
   // ── Message Handler ─────────────────────────────────────────────────────
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const handlers = {
-      'begin-scroll-capture': () => beginCapture(msg.settings),
+      'begin-scroll-capture': () => beginCapture(msg.settings, msg.consoleToken),
       'next-scroll': () => captureNextViewport(),
       'capture-error': () => cleanupCapture(msg.error),
       'capture-done': () => cleanup(),
@@ -130,12 +123,12 @@
 
   // ── Capture Orchestration ───────────────────────────────────────────────
 
-  function beginCapture(cfg) {
+  function beginCapture(cfg, token) {
     settings = cfg;
     originalScrollY = window.scrollY;
 
-    // Start capturing console output for this session
-    startConsoleCapture();
+    // Start relaying the page's console output for this session
+    startConsoleCapture(token);
 
     // Disable smooth scrolling — we need instant jumps
     originalScrollBehavior = document.documentElement.style.scrollBehavior;
@@ -212,7 +205,10 @@
     });
   }
 
-  function finishCapture() {
+  async function finishCapture() {
+    // Restore the page's console before packaging, so the log is complete.
+    await stopConsoleCapture();
+
     const pageInfo = {
       ...(capturedPageInfo || collectPageInfo()),
       capturedAt: new Date().toISOString(),

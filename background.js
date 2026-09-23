@@ -140,10 +140,17 @@ async function handleStartCapture(tabId) {
     // The content script may already be injected. We confirm by messaging below.
   }
 
+  // The content script lives in an isolated world and cannot see the page's
+  // own console calls, so wrap console.* in the page's MAIN world for the
+  // duration of this capture. Entries are relayed back over window.postMessage
+  // on a per-capture channel token; the content script restores the originals.
+  const consoleToken = await installPageConsoleHook(tabId);
+
   try {
     const response = await chrome.tabs.sendMessage(tabId, {
       action: 'begin-scroll-capture',
       settings,
+      consoleToken,
     });
     if (response?.ok === false) {
       throw new Error(response.error || 'Page rejected the capture request.');
@@ -323,6 +330,121 @@ async function pruneStoredCaptures() {
   } catch (err) {
     console.warn('PageGobbler: could not prune stored captures:', err);
   }
+}
+
+// ── Page Console Relay ───────────────────────────────────────────────────────
+
+async function installPageConsoleHook(tabId) {
+  const token = `pagegobbler-console-${CaptureStore.createCaptureId()}`;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: pageConsoleHook,
+      args: [token],
+    });
+    return token;
+  } catch (err) {
+    // Console capture is best-effort; the screenshot still works without it.
+    console.warn('PageGobbler: console capture unavailable on this page:', err);
+    return null;
+  }
+}
+
+/**
+ * Runs in the page's MAIN world (serialized by chrome.scripting, so it must
+ * be self-contained). Wraps console methods and error events until the
+ * content script posts {type: 'stop'} on the same token, then restores the
+ * originals and acknowledges with {type: 'stopped'}.
+ */
+function pageConsoleHook(token) {
+  const STATE_KEY = Symbol.for('pagegobbler.consoleHook');
+  const METHODS = ['log', 'info', 'warn', 'error', 'debug'];
+  const MAX_ENTRIES = 200;
+  const MAX_MESSAGE_CHARS = 4000;
+  const SAFETY_TIMEOUT_MS = 5 * 60 * 1000;
+
+  // A previous capture that never stopped cleanly: restore it first.
+  const previous = window[STATE_KEY];
+  if (previous && typeof previous.restore === 'function') previous.restore();
+
+  const originals = {};
+  let sent = 0;
+  let active = true;
+
+  const describe = (value) => {
+    if (value instanceof Error) return value.stack || `${value.name}: ${value.message}`;
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object') {
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch (_) {
+        return Object.prototype.toString.call(value);
+      }
+    }
+    return String(value);
+  };
+
+  const relay = (level, message) => {
+    if (!active || sent >= MAX_ENTRIES) return;
+    sent += 1;
+    try {
+      window.postMessage({
+        channel: token,
+        type: 'entry',
+        entry: {
+          level,
+          timestamp: new Date().toISOString(),
+          message: String(message).slice(0, MAX_MESSAGE_CHARS),
+        },
+      }, '*');
+    } catch (_) { /* never break the page's logging */ }
+  };
+
+  METHODS.forEach((method) => {
+    const original = console[method];
+    if (typeof original !== 'function') return;
+    originals[method] = original;
+    console[method] = function pageGobblerConsole(...args) {
+      try {
+        relay(method, args.map(describe).join(' '));
+      } catch (_) { /* never break the page's logging */ }
+      return original.apply(this, args);
+    };
+  });
+
+  const onError = (event) => {
+    relay('uncaught-error', `${event.message} at ${event.filename}:${event.lineno}:${event.colno}`);
+  };
+  const onRejection = (event) => relay('unhandled-rejection', describe(event.reason));
+  window.addEventListener('error', onError);
+  window.addEventListener('unhandledrejection', onRejection);
+
+  const safetyTimer = setTimeout(() => restore(), SAFETY_TIMEOUT_MS);
+
+  function restore() {
+    if (!active) return;
+    active = false;
+    clearTimeout(safetyTimer);
+    Object.keys(originals).forEach((method) => {
+      console[method] = originals[method];
+    });
+    window.removeEventListener('error', onError);
+    window.removeEventListener('unhandledrejection', onRejection);
+    window.removeEventListener('message', onControl);
+    if (window[STATE_KEY] === state) delete window[STATE_KEY];
+  }
+
+  function onControl(event) {
+    if (event.source !== window || !event.data || event.data.channel !== token) return;
+    if (event.data.type !== 'stop') return;
+    restore();
+    window.postMessage({ channel: token, type: 'stopped' }, '*');
+  }
+
+  const state = { restore };
+  Object.defineProperty(window, STATE_KEY, { value: state, configurable: true });
+  window.addEventListener('message', onControl);
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────
