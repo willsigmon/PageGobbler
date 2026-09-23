@@ -1,6 +1,6 @@
 # PageGobbler — Privacy Policy
 
-**Last updated:** May 10, 2026
+**Last updated:** September 23, 2026
 
 ## What PageGobbler Does
 
@@ -8,7 +8,7 @@ PageGobbler is a Chrome extension that captures full-page screenshots. It scroll
 
 ## Data Collection
 
-PageGobbler does **not** collect, transmit, or store any personal data.
+PageGobbler does **not** collect or transmit any personal data. The only things it keeps are your settings and your own recent captures, both stored locally on your device (see below).
 
 - **No analytics or tracking** — zero telemetry, no usage metrics.
 - **No external servers** — all processing happens locally in your browser.
@@ -17,23 +17,31 @@ PageGobbler does **not** collect, transmit, or store any personal data.
 
 ## What Data Is Processed Locally
 
-When you explicitly trigger a capture, the extension temporarily holds:
+Only when you explicitly trigger a capture, the extension processes:
 
 - Screenshots of the page you chose to capture
 - Page metadata (URL, title, headings, meta tags, links)
 - Visible text content from the page DOM
 - An optional AI-ready Markdown brief generated locally from the capture
-- Console log output generated during the capture
+- Console output the page itself logs while it is being captured (`console.*` calls, uncaught errors, unhandled promise rejections). The console hook is added only for the duration of the capture and removed when it ends.
 
-This data exists only in browser memory for the duration of the viewer session. It is not saved to disk unless you explicitly download the results.
+## Where Captures Are Kept
+
+- Finished captures are saved on your device in the extension's own IndexedDB storage, so the results page can be reopened or reloaded. This storage belongs to the extension, is not synced to your Google account, and is not readable by websites.
+- Old captures are deleted automatically: PageGobbler keeps your 5 most recent captures plus any made in the last 24 hours (never more than 20), and prunes the rest whenever it starts up and after each new capture.
+- Removing the extension deletes all stored captures.
+- Captures are never transmitted anywhere. Files leave the extension only when you download them or copy text to your clipboard.
+- Settings (compression, quality, and similar options) are saved with `chrome.storage.local` on your device.
 
 ## Permissions
 
 | Permission | Why |
 |---|---|
 | `activeTab` | Access the current tab to capture its content when you click the extension icon |
-| `scripting` | Inject the capture script into the page to scroll and measure it |
+| `scripting` | Inject the capture script into the page to scroll and measure it, plus a temporary console hook that records what the page logs during the capture |
 | `storage` | Save your extension settings (compression, quality, etc.) locally |
+
+Stored captures use the extension's IndexedDB, which needs no extra permission.
 
 ## Third-Party Services
 

@@ -36,13 +36,13 @@ For each screenshot, PageGobbler produces a ZIP containing:
 | `resources.json` | External scripts, stylesheets, fonts, preloads |
 | `forms.json` | Form structure and field definitions |
 | `links.json` | All links on the page |
-| `console.log` | Console output captured during the screenshot |
+| `console.log` | What the page itself logged (`console.*`, uncaught errors, unhandled rejections) while it was being captured |
 
 ## Install
 
 ### Chrome Web Store
 
-Install from the [Chrome Web Store](https://chromewebstore.google.com/) (link coming soon).
+Chrome Web Store listing pending. Until it is published, install it in Developer Mode below.
 
 ### Developer Mode
 
@@ -73,27 +73,55 @@ Install from the [Chrome Web Store](https://chromewebstore.google.com/) (link co
 | Permission | Why |
 |---|---|
 | `activeTab` | Access the current tab to capture its content when you click the extension |
-| `scripting` | Inject the capture script into the page to scroll and measure it |
+| `scripting` | Inject the capture script into the page to scroll and measure it, plus a temporary console hook (in the page's own context) that records what the page logs during the capture and is removed when the capture ends |
 | `storage` | Save your settings (compression, quality, etc.) locally |
 
-No data is sent to any external server. Everything runs locally in your browser.
+Finished captures are kept on your device in the extension's own IndexedDB so the results page can be reloaded (even after Chrome stops the extension's background worker). The newest 5 captures are kept, plus any from the last 24 hours (20 at most); older ones are deleted automatically. No data is sent to any external server. Everything runs locally in your browser.
 
 ## Architecture
 
 ```
 manifest.json (Manifest V3)
 |
-+-- background.js          -- Service worker: capture orchestration, rate limiting
-+-- content/content.js     -- Injected on demand: scrolling, measurement, metadata
++-- background.js          -- Service worker: capture orchestration, rate limiting,
+|                             saving captures, MAIN-world console hook
++-- content/content.js     -- Injected on demand: scrolling, measurement, metadata,
+|                             collects relayed console entries
 +-- lib/
+|   +-- capture-store.js   -- IndexedDB store for finished captures (worker + viewer)
 |   +-- image-processor.js -- Canvas stitching, compression, smart sectioning
 +-- popup/
 |   +-- popup.html/css/js  -- Extension popup with capture button + settings
 +-- viewer/
 |   +-- viewer.html/css/js -- Results page: image preview, text, metadata, downloads
 +-- icons/
-    +-- icon{16,32,48,128}.png
+|   +-- icon{16,32,48,128}.png, turkey-32.svg
++-- scripts/package.sh     -- Builds the Chrome Web Store zip into dist/
++-- tests/                 -- e2e.mjs (Playwright) and unit/ (node:test)
 ```
+
+## Development
+
+There is no build step and no npm install: the repo folder is the extension. Load it unpacked (see Install) and reload it from `chrome://extensions/` after changes.
+
+```bash
+# Syntax-check every script
+for f in $(git ls-files '*.js' '*.mjs'); do node --check "$f"; done
+
+# Unit tests for the pure helpers (Node 22+)
+node --test 'tests/unit/*.test.mjs'
+
+# End-to-end test: loads a temp copy of the extension in Playwright's Chromium,
+# gobbles a tall local page, checks sections, console capture, the ZIP export,
+# and that the capture survives a stopped service worker. Exits non-zero on failure.
+node tests/e2e.mjs
+node tests/e2e.mjs --from-package   # same checks against the unzipped dist zip
+
+# Build the Chrome Web Store upload: dist/PageGobbler-v<version>.zip
+./scripts/package.sh
+```
+
+The e2e test needs Playwright with its Chromium build. It uses `playwright` from `node_modules` if present, otherwise `$PLAYWRIGHT_PATH` or a global install (`npm i -g playwright && npx playwright install chromium`). Because automation cannot grant `activeTab`, the test adds `host_permissions: ["<all_urls>"]` to its temporary copy only; the shipped manifest is unchanged.
 
 ## Limitations
 
@@ -104,4 +132,4 @@ manifest.json (Manifest V3)
 
 ## Privacy
 
-PageGobbler collects **zero** user data. No analytics, no tracking, no external servers. See [PRIVACY.md](PRIVACY.md) for details.
+PageGobbler collects **zero** user data. No analytics, no tracking, no external servers. Captures stay on your device and are pruned automatically. See [PRIVACY.md](PRIVACY.md) for details.
