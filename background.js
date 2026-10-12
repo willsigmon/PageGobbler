@@ -71,12 +71,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     'start-capture': () => handleStartCapture(msg.tabId ?? sender.tab?.id)
       .then(sendResponse)
       .catch((err) => sendResponse({ ok: false, error: err.message })),
+    // Answered only once the capture is saved: the open channel keeps the
+    // service worker alive through image conversion and the IndexedDB write.
+    'capture-complete': () => handleCaptureComplete(msg, sender)
+      .finally(() => sendResponse({ ok: true })),
   };
 
   // Fire-and-forget handlers — no sendResponse needed
   const fireHandlers = {
     'capture-viewport': () => handleCaptureViewport(msg, sender),
-    'capture-complete': () => handleCaptureComplete(msg, sender),
   };
 
   if (asyncHandlers[msg.action]) {
@@ -157,6 +160,7 @@ async function handleStartCapture(tabId) {
     }
   } catch (err) {
     captureState = null;
+    if (consoleToken) removePageConsoleHook(tabId, consoleToken);
     return markStartFailed(
       err?.message?.includes('Receiving end does not exist')
         ? 'Could not inject PageGobbler into this page.'
@@ -222,19 +226,31 @@ async function handleCaptureComplete(msg, sender) {
   const { captures, settings } = captureState;
   const pageInfo = msg.pageInfo;
 
+  // Every viewport is in hand: restore the page (scroll position, sticky
+  // elements, overflow) now rather than after the slower storage work.
+  chrome.tabs.sendMessage(tabId, { action: 'capture-done' }).catch(() => {});
+
   try {
     const captureId = captureState.captureId;
     const createdAt = Date.now();
-    const record = {
-      id: captureId,
-      createdAt,
-      captures: await Promise.all(captures.map(async (c) => ({
-        ...(await storableImage(c.dataUrl)),
+    // Convert one viewport at a time and drop each data URL once its Blob
+    // exists, so a tall page never holds every base64 copy at once.
+    const storedCaptures = [];
+    for (const c of captures) {
+      const image = await storableImage(c.dataUrl);
+      c.dataUrl = null;
+      storedCaptures.push({
+        ...image,
         scrollY: c.scrollY,
         viewportHeight: c.viewportHeight,
         clipHeight: c.clipHeight,
         index: c.index,
-      }))),
+      });
+    }
+    const record = {
+      id: captureId,
+      createdAt,
+      captures: storedCaptures,
       pageInfo,
       settings,
       timestamp: createdAt,
@@ -254,9 +270,6 @@ async function handleCaptureComplete(msg, sender) {
       active: true,
     });
 
-    // Tell content script we're done — restore page state
-    chrome.tabs.sendMessage(tabId, { action: 'capture-done' });
-
     // Badge: brief success indicator
     chrome.action.setBadgeTextColor({ color: '#1a1008' });
     chrome.action.setBadgeBackgroundColor({ color: '#D4762C' });
@@ -268,7 +281,6 @@ async function handleCaptureComplete(msg, sender) {
       captureState.phase = 'error';
       captureState.error = err.message;
     }
-    chrome.tabs.sendMessage(tabId, { action: 'capture-error', error: err.message });
     chrome.action.setBadgeTextColor({ color: '#F5E6D0' });
     chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
     chrome.action.setBadgeText({ text: 'X' });
@@ -351,6 +363,16 @@ async function installPageConsoleHook(tabId) {
   }
 }
 
+// Used when the capture never starts, so the content script never stops the hook.
+function removePageConsoleHook(tabId, token) {
+  chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: (channel) => window.postMessage({ channel, type: 'stop' }, '*'),
+    args: [token],
+  }).catch(() => { /* the hook's own safety timeout still restores the console */ });
+}
+
 /**
  * Runs in the page's MAIN world (serialized by chrome.scripting, so it must
  * be self-contained). Wraps console methods and error events until the
@@ -372,17 +394,41 @@ function pageConsoleHook(token) {
   let sent = 0;
   let active = true;
 
+  // Like the DevTools console, never run page getters or walk a whole object
+  // graph: show own data properties only, a few levels deep, within a budget.
+  const MAX_DEPTH = 3;
+  const MAX_KEYS = 20;
+  const preview = (value, depth, seen) => {
+    if (value === null || typeof value !== 'object') {
+      return typeof value === 'string' ? JSON.stringify(value) : String(value);
+    }
+    if (seen.has(value)) return '[Circular]';
+    const tag = Object.prototype.toString.call(value).slice(8, -1);
+    if (depth >= MAX_DEPTH) return Array.isArray(value) ? `Array(${value.length})` : `[${tag}]`;
+    seen.add(value);
+    // Arrays: index the first few instead of listing every key of a huge array.
+    const keys = Array.isArray(value)
+      ? Array.from({ length: Math.min(value.length, MAX_KEYS) }, (_, i) => String(i))
+      : Object.keys(value);
+    const total = Array.isArray(value) ? value.length : keys.length;
+    const parts = keys.slice(0, MAX_KEYS).map((key) => {
+      const desc = Object.getOwnPropertyDescriptor(value, key);
+      const shown = desc && 'value' in desc ? preview(desc.value, depth + 1, seen) : '[Getter]';
+      return Array.isArray(value) ? shown : `${key}: ${shown}`;
+    });
+    if (total > MAX_KEYS) parts.push(`… ${total - MAX_KEYS} more`);
+    seen.delete(value);
+    return Array.isArray(value) ? `[${parts.join(', ')}]` : `${tag === 'Object' ? '' : `${tag} `}{${parts.join(', ')}}`;
+  };
+
   const describe = (value) => {
     if (value instanceof Error) return value.stack || `${value.name}: ${value.message}`;
     if (typeof value === 'string') return value;
-    if (value && typeof value === 'object') {
-      try {
-        return JSON.stringify(value, null, 2);
-      } catch (_) {
-        return Object.prototype.toString.call(value);
-      }
+    try {
+      return preview(value, 0, new Set());
+    } catch (_) {
+      return Object.prototype.toString.call(value);
     }
-    return String(value);
   };
 
   const relay = (level, message) => {
