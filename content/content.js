@@ -273,6 +273,7 @@
     const imageAssets = extractImageAssets();
     const structuredData = extractStructuredData();
     const designTokens = extractDesignTokens();
+    const markdown = extractMarkdown();
 
     return {
       url: window.location.href,
@@ -288,6 +289,7 @@
       capturedAt: new Date().toISOString(),
       documentLang: document.documentElement.lang || 'unknown',
       visibleText: visibleText.slice(0, 50000),
+      markdown,
       domStructure,
       imageAssets,
       structuredData,
@@ -330,6 +332,33 @@
       chunks.push(walker.currentNode.textContent.trim());
     }
     return chunks.join('\n');
+  }
+
+  // ── Markdown Distillation ──────────────────────────────────────────────
+
+  const MAX_MARKDOWN_CHARS = 500000;
+
+  function isRenderedHidden(el) {
+    if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return true;
+    const style = getComputedStyle(el);
+    return style.display === 'none'
+      || style.visibility === 'hidden'
+      || Number(style.opacity) === 0
+      || parseFloat(style.fontSize) === 0;
+  }
+
+  function extractMarkdown() {
+    if (!globalThis.PageGobblerMarkdown) return null;
+    try {
+      return globalThis.PageGobblerMarkdown.pageToMarkdown(document, {
+        url: window.location.href,
+        capturedAt: new Date().toISOString(),
+        isHidden: isRenderedHidden,
+        maxLength: MAX_MARKDOWN_CHARS,
+      });
+    } catch (err) {
+      return { markdown: '', source: 'error', wordCount: 0, truncated: false, error: err.message };
+    }
   }
 
   // ── DOM Structure Extractor ────────────────────────────────────────────

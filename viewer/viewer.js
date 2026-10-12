@@ -119,6 +119,7 @@ const ZipBuilder = (() => {
   const metaGrid = document.getElementById('meta-grid');
   const aiBriefOutput = document.getElementById('ai-brief');
   const ocrText = document.getElementById('ocr-text');
+  const markdownOutput = document.getElementById('markdown-output');
   const jsonOutput = document.getElementById('json-output');
   const summarySource = document.getElementById('summary-source');
   const summarySections = document.getElementById('summary-sections');
@@ -128,6 +129,7 @@ const ZipBuilder = (() => {
   const btnCopyBrief = document.getElementById('btn-copy-brief');
   const btnDownloadBrief = document.getElementById('btn-download-brief');
   const btnCopyText = document.getElementById('btn-copy-text');
+  const btnCopyMarkdown = document.getElementById('btn-copy-markdown');
   const btnCopyMeta = document.getElementById('btn-copy-metadata');
 
   // Tab switching
@@ -144,6 +146,7 @@ const ZipBuilder = (() => {
   let processedSections = [];
   let fullMetadata = {};
   let extractedText = '';
+  let pageMarkdown = '';
   let aiBrief = '';
 
   // ── Load captured data (fetch from background via messaging) ────────────
@@ -240,6 +243,13 @@ const ZipBuilder = (() => {
 
   ocrText.textContent = extractedText || '(No text extracted)';
 
+  if (settings.enableOCR) {
+    pageMarkdown = pageInfo.markdown?.markdown || '';
+    markdownOutput.textContent = pageMarkdown || '(No Markdown could be distilled from this page)';
+  } else {
+    markdownOutput.textContent = '(Text extraction disabled in settings)';
+  }
+
   // ── Step 5: Build metadata ────────────────────────────────────────────
 
   setStatus('Building metadata...', 90);
@@ -285,6 +295,13 @@ const ZipBuilder = (() => {
       characters: extractedText.length,
       words: extractedText.trim() ? extractedText.trim().split(/\s+/).length : 0,
     },
+    markdown: pageMarkdown ? {
+      file: 'page.md',
+      contentRoot: pageInfo.markdown.source,
+      words: pageInfo.markdown.wordCount,
+      characters: pageMarkdown.length,
+      truncated: pageInfo.markdown.truncated === true,
+    } : null,
     processing: {
       elapsedMs: captureData.elapsedMs,
       totalCaptures: captures.length,
@@ -313,6 +330,7 @@ const ZipBuilder = (() => {
   btnCopyBrief.disabled = false;
   btnDownloadBrief.disabled = false;
   btnCopyText.disabled = false;
+  btnCopyMarkdown.disabled = !pageMarkdown;
   btnCopyMeta.disabled = false;
 
   // ── Event Handlers ────────────────────────────────────────────────────
@@ -321,6 +339,7 @@ const ZipBuilder = (() => {
   btnCopyBrief.addEventListener('click', () => copyToClipboard(aiBrief, btnCopyBrief));
   btnDownloadBrief.addEventListener('click', () => downloadBrief());
   btnCopyText.addEventListener('click', () => copyToClipboard(extractedText, btnCopyText));
+  btnCopyMarkdown.addEventListener('click', () => copyToClipboard(pageMarkdown, btnCopyMarkdown));
   btnCopyMeta.addEventListener('click', () => copyToClipboard(JSON.stringify(fullMetadata, null, 2), btnCopyMeta));
 
   // ── Render Functions ──────────────────────────────────────────────────
@@ -503,6 +522,7 @@ const ZipBuilder = (() => {
     `;
 
     aiBriefOutput.textContent = 'Gobble a page first to generate an AI-ready Markdown brief.';
+    markdownOutput.textContent = 'Gobble a page first to distill its main content into clean Markdown.';
     ocrText.textContent = 'Gobble a page first to extract visible page text.';
     jsonOutput.textContent = JSON.stringify({ status: 'waiting_for_capture' }, null, 2);
   }
@@ -558,6 +578,14 @@ const ZipBuilder = (() => {
         files.push({
           name: 'page_text.txt',
           data: new TextEncoder().encode(extractedText),
+        });
+      }
+
+      // Add clean Markdown distillation of the main content
+      if (pageMarkdown) {
+        files.push({
+          name: 'page.md',
+          data: new TextEncoder().encode(pageMarkdown),
         });
       }
 
@@ -679,6 +707,12 @@ const ZipBuilder = (() => {
         const textBlob = new Blob([extractedText], { type: 'text/plain' });
         const textUrl = URL.createObjectURL(textBlob);
         setTimeout(() => triggerDownload(textUrl, `gobble_${title}_text.txt`), (processedSections.length + 1) * 300);
+      }
+
+      if (pageMarkdown) {
+        const mdBlob = new Blob([pageMarkdown], { type: 'text/markdown' });
+        const mdUrl = URL.createObjectURL(mdBlob);
+        setTimeout(() => triggerDownload(mdUrl, `gobble_${title}_page.md`), (processedSections.length + 2) * 300);
       }
     }
   }
@@ -802,6 +836,12 @@ const ZipBuilder = (() => {
       '',
       '## Key Links',
       links || '- No links detected.',
+      '',
+      '## Content Files',
+      metadata.markdown
+        ? `- page.md: clean Markdown of the main content (${metadata.markdown.contentRoot}, ${metadata.markdown.words} words${metadata.markdown.truncated ? ', truncated' : ''}) — preferred source for copy, tables, and code`
+        : '- page.md: not available',
+      '- page_text.txt: raw visible text',
       '',
       '## Text Excerpt',
       textExcerpt(text, 6000),

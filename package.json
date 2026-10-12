@@ -1,0 +1,12 @@
+{
+  "name": "pagegobbler",
+  "private": true,
+  "description": "Dev tooling for the PageGobbler Chrome extension (the extension itself has no build step).",
+  "scripts": {
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:e2e": "node tests/e2e-markdown.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}

@@ -8,6 +8,7 @@ A Chrome extension that gobbles up entire web pages — full-page screenshots wi
 - **Smart compression** — iterative format/quality/scale reduction to hit a target file size (default 3 MB)
 - **Smart section splitting** — breaks tall pages at natural visual boundaries (whitespace rows) into multiple images
 - **Page text extraction** — extracts visible text content directly from the page DOM
+- **Clean Markdown export** — distills the main content into GitHub Flavored Markdown (tables, code blocks, lists, absolute links) with tracking params, hidden elements, and invisible prompt-injection characters stripped
 - **Page metadata** — collects URL, title, headings, meta tags, links, dimensions, and timestamps
 - **Design tokens** — captures colors, fonts, and CSS custom properties
 - **Structured data** — extracts JSON-LD, Open Graph, and Twitter Card data
@@ -27,6 +28,7 @@ For each screenshot, PageGobbler produces a ZIP containing:
 | Image section(s) | Compressed WebP/JPEG/PNG, each under your size target |
 | `metadata.json` | Page URL, title, headings, meta tags, dimensions, compression stats |
 | `ai_brief.md` | AI-ready Markdown summary with source, structure, screenshot files, design tokens, links, and text excerpt |
+| `page.md` | Main content as clean GitHub Flavored Markdown with YAML front matter |
 | `page_text.txt` | Extracted visible text from the DOM |
 | `dom_structure.html` | Semantic HTML skeleton of the page |
 | `design_tokens.json` | Colors, fonts, CSS custom properties |
@@ -87,12 +89,20 @@ manifest.json (Manifest V3)
 +-- content/content.js     -- Injected on demand: scrolling, measurement, metadata
 +-- lib/
 |   +-- image-processor.js -- Canvas stitching, compression, smart sectioning
+|   +-- page-markdown.js   -- DOM-to-Markdown distiller (injected with content.js)
 +-- popup/
 |   +-- popup.html/css/js  -- Extension popup with capture button + settings
 +-- viewer/
 |   +-- viewer.html/css/js -- Results page: image preview, text, metadata, downloads
 +-- icons/
     +-- icon{16,32,48,128}.png
+```
+
+## Development
+
+```bash
+npm install   # dev-only: jsdom for unit tests
+npm test
 ```
 
 ## Limitations
