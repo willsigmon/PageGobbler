@@ -405,12 +405,24 @@ function pageConsoleHook(token) {
   // graph: show own data properties only, a few levels deep, within a budget.
   const MAX_DEPTH = 3;
   const MAX_KEYS = 20;
+  // Object.prototype.toString would run a Symbol.toStringTag getter; read the
+  // constructor's name through descriptors instead.
+  const dataValue = (target, key) => {
+    const desc = target && Object.getOwnPropertyDescriptor(target, key);
+    return desc && 'value' in desc ? desc.value : undefined;
+  };
+  const constructorName = (value) => {
+    const ctor = dataValue(Object.getPrototypeOf(value), 'constructor');
+    const name = typeof ctor === 'function' ? dataValue(ctor, 'name') : '';
+    return typeof name === 'string' && name ? name : 'Object';
+  };
+
   const preview = (value, depth, seen) => {
     if (value === null || typeof value !== 'object') {
       return typeof value === 'string' ? JSON.stringify(value) : String(value);
     }
     if (seen.has(value)) return '[Circular]';
-    const tag = Object.prototype.toString.call(value).slice(8, -1);
+    const tag = Array.isArray(value) ? 'Array' : constructorName(value);
     if (depth >= MAX_DEPTH) return Array.isArray(value) ? `Array(${value.length})` : `[${tag}]`;
     seen.add(value);
     // Collect at most MAX_KEYS + 1 keys (the extra one only says "more"),
@@ -443,7 +455,7 @@ function pageConsoleHook(token) {
     try {
       return preview(value, 0, new Set());
     } catch (_) {
-      return Object.prototype.toString.call(value);
+      return '[Unpreviewable]';
     }
   };
 
