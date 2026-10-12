@@ -366,6 +366,8 @@ a:focus-visible {
   border-bottom: 1px solid var(--border);
   margin-bottom: 18px;
   gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .tab {
@@ -373,8 +375,10 @@ a:focus-visible {
   border: none;
   color: var(--text-dim);
   min-height: 44px;
-  padding: 10px 18px;
+  padding: 10px 14px;
   font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
   font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
