@@ -187,3 +187,8 @@ test('truncation lands on a block boundary and closes open code fences', () => {
   assert.equal(fences % 2, 0, 'fences balanced');
   assert.match(body, /```\n\n… \[truncated by PageGobbler\]\n$/);
 });
+
+test('escapes literal tildes so plain text never becomes strikethrough or a fence', () => {
+  assert.equal(md('<p>~~not struck~~</p>'), '\\~\\~not struck\\~\\~');
+  assert.equal(md('<p><del>struck</del></p>'), '~~struck~~');
+});

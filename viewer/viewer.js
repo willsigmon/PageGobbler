@@ -708,6 +708,12 @@ const ZipBuilder = (() => {
         const textUrl = URL.createObjectURL(textBlob);
         setTimeout(() => triggerDownload(textUrl, `gobble_${title}_text.txt`), (processedSections.length + 1) * 300);
       }
+
+      if (pageMarkdown) {
+        const mdBlob = new Blob([pageMarkdown], { type: 'text/markdown' });
+        const mdUrl = URL.createObjectURL(mdBlob);
+        setTimeout(() => triggerDownload(mdUrl, `gobble_${title}_page.md`), (processedSections.length + 2) * 300);
+      }
     }
   }
 
