@@ -42,6 +42,8 @@
   let consoleToken = null;
   let consoleListener = null;
   const CONSOLE_STOP_TIMEOUT_MS = 500;
+  const MAX_CONSOLE_MESSAGE_CHARS = 4000; // same cap as the MAIN-world hook
+  const CONSOLE_LEVELS = new Set(['log', 'info', 'warn', 'error', 'debug', 'uncaught-error', 'unhandled-rejection']);
 
   // ── Console Capture (on-demand only) ─────────────────────────────────
 
@@ -56,11 +58,14 @@
       if (event.source !== window || !data || data.channel !== consoleToken) return;
       if (data.type !== 'entry' || !data.entry) return;
       if (capturedConsole.length >= MAX_CONSOLE_ENTRIES) return;
+      // The page can see the token once an entry is posted and forge its own,
+      // so accept only plain strings and apply the hook's limits here too.
       const { level, timestamp, message } = data.entry;
+      if (typeof message !== 'string') return;
       capturedConsole.push({
-        level: String(level || 'log'),
-        timestamp: String(timestamp || new Date().toISOString()),
-        message: String(message ?? ''),
+        level: CONSOLE_LEVELS.has(level) ? level : 'log',
+        timestamp: typeof timestamp === 'string' ? timestamp.slice(0, 40) : new Date().toISOString(),
+        message: message.slice(0, MAX_CONSOLE_MESSAGE_CHARS),
       });
     };
     window.addEventListener('message', consoleListener);

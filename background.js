@@ -425,34 +425,57 @@ function pageConsoleHook(token) {
     const tag = Array.isArray(value) ? 'Array' : constructorName(value);
     if (depth >= MAX_DEPTH) return Array.isArray(value) ? `Array(${value.length})` : `[${tag}]`;
     seen.add(value);
-    // Collect at most MAX_KEYS + 1 keys (the extra one only says "more"),
-    // never the full key list of a huge object or array.
-    const keys = [];
+    // Show at most MAX_KEYS entries. Arrays are read by index; objects list
+    // own keys only (for...in would also enumerate the whole prototype chain).
+    let keys;
     if (Array.isArray(value)) {
-      for (let i = 0; i < Math.min(value.length, MAX_KEYS + 1); i += 1) keys.push(String(i));
+      keys = [];
+      for (let i = 0; i < Math.min(value.length, MAX_KEYS); i += 1) keys.push(String(i));
     } else {
-      for (const key in value) {
-        if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
-        keys.push(key);
-        if (keys.length > MAX_KEYS) break;
-      }
+      keys = Object.keys(value);
     }
-    const more = Array.isArray(value) ? value.length - MAX_KEYS : (keys.length > MAX_KEYS ? null : 0);
+    const more = (Array.isArray(value) ? value.length : keys.length) - MAX_KEYS;
     const parts = keys.slice(0, MAX_KEYS).map((key) => {
       const desc = Object.getOwnPropertyDescriptor(value, key);
       const shown = desc && 'value' in desc ? preview(desc.value, depth + 1, seen) : '[Getter]';
       return Array.isArray(value) ? shown : `${key}: ${shown}`;
     });
-    if (more === null) parts.push('…');
-    else if (more > 0) parts.push(`… ${more} more`);
+    if (more > 0) parts.push(`… ${more} more`);
     seen.delete(value);
     return Array.isArray(value) ? `[${parts.join(', ')}]` : `${tag === 'Object' ? '' : `${tag} `}{${parts.join(', ')}}`;
   };
 
+  // Errors carry V8's native `stack` accessor; run only that one, never a
+  // getter the page defined, and read name and message as data properties.
+  const NATIVE_STACK_GETTER = (() => {
+    try {
+      return Object.getOwnPropertyDescriptor(new Error(), 'stack')?.get;
+    } catch (_) {
+      return undefined;
+    }
+  })();
+  const inheritedDataValue = (target, key) => {
+    for (let obj = target, hops = 0; obj && hops < 32; obj = Object.getPrototypeOf(obj), hops += 1) {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      if (desc) return 'value' in desc ? desc.value : undefined;
+    }
+    return undefined;
+  };
+  const describeError = (error) => {
+    const desc = Object.getOwnPropertyDescriptor(error, 'stack');
+    let stack;
+    if (desc && 'value' in desc) stack = desc.value;
+    else if (desc && desc.get && desc.get === NATIVE_STACK_GETTER) stack = desc.get.call(error);
+    if (typeof stack === 'string' && stack) return stack;
+    const name = inheritedDataValue(error, 'name');
+    const message = inheritedDataValue(error, 'message');
+    return `${typeof name === 'string' && name ? name : 'Error'}: ${typeof message === 'string' ? message : ''}`;
+  };
+
   const describe = (value) => {
-    if (value instanceof Error) return value.stack || `${value.name}: ${value.message}`;
     if (typeof value === 'string') return value;
     try {
+      if (value instanceof Error) return describeError(value);
       return preview(value, 0, new Set());
     } catch (_) {
       return '[Unpreviewable]';
@@ -475,18 +498,30 @@ function pageConsoleHook(token) {
     } catch (_) { /* never break the page's logging */ }
   };
 
-  METHODS.forEach((method) => {
-    const original = console[method];
-    if (typeof original !== 'function') return;
-    originals[method] = original;
-    wrappers[method] = function pageGobblerConsole(...args) {
+  try {
+    METHODS.forEach((method) => {
+      const original = console[method];
+      if (typeof original !== 'function') return;
+      originals[method] = original;
+      wrappers[method] = function pageGobblerConsole(...args) {
+        try {
+          relay(method, args.map(describe).join(' '));
+        } catch (_) { /* never break the page's logging */ }
+        return original.apply(this, args);
+      };
+      console[method] = wrappers[method];
+    });
+  } catch (err) {
+    // A page setter refused one method: undo the ones already wrapped, since
+    // no stop message or safety timer exists yet to do it later.
+    active = false;
+    Object.keys(wrappers).forEach((method) => {
       try {
-        relay(method, args.map(describe).join(' '));
-      } catch (_) { /* never break the page's logging */ }
-      return original.apply(this, args);
-    };
-    console[method] = wrappers[method];
-  });
+        if (console[method] === wrappers[method]) console[method] = originals[method];
+      } catch (_) { /* leave it; the wrapper is inert once inactive */ }
+    });
+    throw err;
+  }
 
   const onError = (event) => {
     relay('uncaught-error', `${event.message} at ${event.filename}:${event.lineno}:${event.colno}`);
