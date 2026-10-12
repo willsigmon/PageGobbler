@@ -8,6 +8,7 @@ A Chrome extension that gobbles up entire web pages — full-page screenshots wi
 - **Smart compression** — iterative format/quality/scale reduction to hit a target file size (default 3 MB)
 - **Smart section splitting** — breaks tall pages at natural visual boundaries (whitespace rows) into multiple images
 - **Page text extraction** — extracts visible text content directly from the page DOM
+- **Clean Markdown export** — distills the main content into GitHub Flavored Markdown (tables, code blocks, lists, absolute links) with tracking params, hidden elements, and invisible prompt-injection characters stripped
 - **Page metadata** — collects URL, title, headings, meta tags, links, dimensions, and timestamps
 - **Design tokens** — captures colors, fonts, and CSS custom properties
 - **Structured data** — extracts JSON-LD, Open Graph, and Twitter Card data
@@ -27,6 +28,7 @@ For each screenshot, PageGobbler produces a ZIP containing:
 | Image section(s) | Compressed WebP/JPEG/PNG, each under your size target |
 | `metadata.json` | Page URL, title, headings, meta tags, dimensions, compression stats |
 | `ai_brief.md` | AI-ready Markdown summary with source, structure, screenshot files, design tokens, links, and text excerpt |
+| `page.md` | Main content as clean GitHub Flavored Markdown with YAML front matter |
 | `page_text.txt` | Extracted visible text from the DOM |
 | `dom_structure.html` | Semantic HTML skeleton of the page |
 | `design_tokens.json` | Colors, fonts, CSS custom properties |
@@ -90,6 +92,7 @@ manifest.json (Manifest V3)
 +-- lib/
 |   +-- capture-store.js   -- IndexedDB store for finished captures (worker + viewer)
 |   +-- image-processor.js -- Canvas stitching, compression, smart sectioning
+|   +-- page-markdown.js   -- DOM-to-Markdown distiller (injected with content.js)
 +-- popup/
 |   +-- popup.html/css/js  -- Extension popup with capture button + settings
 +-- viewer/
@@ -102,20 +105,24 @@ manifest.json (Manifest V3)
 
 ## Development
 
-There is no build step and no npm install: the repo folder is the extension. Load it unpacked (see Install) and reload it from `chrome://extensions/` after changes.
+There is no build step: the repo folder is the extension. `npm install` only pulls dev tooling (jsdom for the Markdown unit tests). Load it unpacked (see Install) and reload it from `chrome://extensions/` after changes.
 
 ```bash
 # Syntax-check every script
 for f in $(git ls-files '*.js' '*.mjs'); do node --check "$f"; done
 
-# Unit tests for the pure helpers (Node 22+)
-node --test 'tests/unit/*.test.mjs'
+# Unit tests (Node 22+; the Markdown tests need `npm install` for jsdom)
+npm test
 
 # End-to-end test: loads a temp copy of the extension in Playwright's Chromium,
 # gobbles a tall local page, checks sections, console capture, the ZIP export,
 # and that the capture survives a stopped service worker. Exits non-zero on failure.
 node tests/e2e.mjs
 node tests/e2e.mjs --from-package   # same checks against the unzipped dist zip
+node tests/e2e-markdown.mjs         # page.md export end to end
+
+# Regenerate the Chrome Web Store screenshots and promo tile from the real UI
+xvfb-run -a node scripts/store-screenshots.mjs
 
 # Build the Chrome Web Store upload: dist/PageGobbler-v<version>.zip
 ./scripts/package.sh

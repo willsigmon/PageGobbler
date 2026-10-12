@@ -134,7 +134,7 @@ async function handleStartCapture(tabId) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ['content/content.js'],
+      files: ['lib/page-markdown.js', 'content/content.js'],
     });
   } catch (_) {
     // The content script may already be injected. We confirm by messaging below.

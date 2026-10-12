@@ -19,6 +19,7 @@
         <button id="btn-download-all" class="btn btn-primary" disabled>Download ZIP</button>
         <button id="btn-copy-brief" class="btn btn-secondary" disabled>Copy AI Brief</button>
         <button id="btn-download-brief" class="btn btn-secondary" disabled>Download Brief</button>
+        <button id="btn-copy-markdown" class="btn btn-secondary" disabled>Copy Markdown</button>
         <button id="btn-copy-text" class="btn btn-secondary" disabled>Copy Text</button>
         <button id="btn-copy-metadata" class="btn btn-secondary" disabled>Copy JSON</button>
       </div>
@@ -66,6 +67,7 @@
         <div class="tabs">
           <button class="tab active" data-tab="metadata">Page Info</button>
           <button class="tab" data-tab="brief">AI Brief</button>
+          <button class="tab" data-tab="markdown">Markdown</button>
           <button class="tab" data-tab="ocr">Page Text</button>
           <button class="tab" data-tab="json">Raw JSON</button>
         </div>
@@ -78,6 +80,10 @@
 
         <div class="tab-content" id="tab-brief">
           <pre id="ai-brief" class="ai-brief">Building AI brief...</pre>
+        </div>
+
+        <div class="tab-content" id="tab-markdown">
+          <pre id="markdown-output" class="ocr-text">Distilling page to Markdown...</pre>
         </div>
 
         <div class="tab-content" id="tab-ocr">
