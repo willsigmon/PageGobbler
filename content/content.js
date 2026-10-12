@@ -341,7 +341,10 @@
   function isRenderedHidden(el) {
     if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return true;
     const style = getComputedStyle(el);
-    return style.display === 'none' || style.visibility === 'hidden';
+    return style.display === 'none'
+      || style.visibility === 'hidden'
+      || Number(style.opacity) === 0
+      || parseFloat(style.fontSize) === 0;
   }
 
   function extractMarkdown() {

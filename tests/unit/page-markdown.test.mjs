@@ -136,3 +136,54 @@ test('truncates long bodies on a word boundary', () => {
   assert.ok(truncated);
   assert.match(markdown, /word\n\n… \[truncated by PageGobbler\]\n$/);
 });
+
+// ── Review follow-ups ──────────────────────────────────────────────────────
+
+test('hidden articles never win content-root selection', () => {
+  const visibleText = 'Visible story sentence. '.repeat(30);
+  const hiddenText = 'Injected hidden instructions. '.repeat(80);
+  const doc = dom(`<article style="display:none">${hiddenText}</article><article aria-hidden="true">${hiddenText}</article><article>${visibleText}</article>`);
+  const { markdown, source } = pageToMarkdown(doc);
+  assert.equal(source, 'article');
+  assert.match(markdown, /Visible story sentence\./);
+  assert.ok(!markdown.includes('Injected hidden instructions'));
+});
+
+test('content inside a page-wide <form> is kept; controls are dropped', () => {
+  assert.equal(md('<form><h2>Inside form</h2><p>Body copy</p><input value="x"><button>Submit</button></form>'), '## Inside form\n\nBody copy');
+});
+
+test('strips path-based jsessionid', () => {
+  assert.equal(normalizeUrl('/app;jsessionid=SECRET123?x=1', BASE), 'https://example.com/app?x=1');
+});
+
+test('lazy images fall back past data: placeholders', () => {
+  assert.equal(md('<p><img src="data:image/gif;base64,R0lGOD" data-src="/real.jpg" alt="Real"></p>'), '![Real](https://example.com/real.jpg)');
+});
+
+test('link titles with backslashes, quotes, and newlines stay well-formed', () => {
+  assert.equal(md('<p><a href="/a" title="C:\\ say &quot;hi&quot;\n\nnext">x</a></p>'), '[x](https://example.com/a "C:\\\\ say \\"hi\\" next")');
+});
+
+test('code blocks read the <code> element and ignore toolbar controls', () => {
+  assert.equal(md('<pre><button>Copy</button><span hidden>1</span><code class="language-sh">ls -la</code></pre>'), '```sh\nls -la\n```');
+});
+
+test('list items keep paragraph breaks but hug nested lists', () => {
+  assert.equal(md('<ul><li><p>First para</p><p>Second para</p><ul><li>nested</li></ul></li><li>Next</li></ul>'),
+    '- First para\n\n  Second para\n  - nested\n- Next');
+});
+
+test('keeps ZWNJ/ZWJ used by scripts and emoji', () => {
+  assert.equal(md('<p>\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645 \u{1F469}\u200D\u{1F4BB}</p>'), '\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645 \u{1F469}\u200D\u{1F4BB}');
+});
+
+test('truncation lands on a block boundary and closes open code fences', () => {
+  const doc = dom(`<p>Intro paragraph.</p><pre><code>${'line of code\n'.repeat(50)}</code></pre><p>After</p>`);
+  const { markdown, truncated } = pageToMarkdown(doc, { maxLength: 200 });
+  assert.ok(truncated);
+  const body = markdown.split('---\n\n')[1];
+  const fences = body.split('\n').filter((l) => /^```/.test(l)).length;
+  assert.equal(fences % 2, 0, 'fences balanced');
+  assert.match(body, /```\n\n… \[truncated by PageGobbler\]\n$/);
+});
