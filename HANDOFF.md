@@ -1,12 +1,16 @@
-# PageGobbler — Handoff (September 23, 2026)
+# PageGobbler — Handoff (October 12, 2026)
 
 ## What this is
-Chrome MV3 extension (vanilla JS, no build step) that captures full-page screenshots with smart compression and section splitting, plus page text, metadata, design tokens, an AI brief, and a ZIP export.
+Chrome MV3 extension (vanilla JS, no build step) that captures full-page screenshots with smart compression and section splitting, plus page text, clean Markdown (`page.md`), metadata, design tokens, an AI brief, and a ZIP export.
 
 ## Current state
 Code is ready for Chrome Web Store submission. Version in `manifest.json` is still 2.1.3; the owner sets versions. The Chrome Web Store listing is pending (not submitted yet).
 
-### What changed in this round
+### What changed on October 12
+- **Store images are ready.** Five 1280x800 screenshots (popup, viewer, Markdown tab, AI Brief tab, settings) and the 440x280 promo tile were regenerated from the real extension UI with the Aug 14 design. `scripts/store-screenshots.mjs` rebuilds them after any UI change. The old pre-redesign screenshots were removed so they can't be uploaded by mistake.
+- **Merged with the Markdown export** (PR #2) so the store build includes `page.md`. The listing copy and PRIVACY.md mention it.
+
+### What changed on September 23
 - **Captures survive the service worker stopping.** Finished captures used to live in a worker variable with a 10-minute timer, so reloading the results page after Chrome idled the worker showed "No capture data found." They are now saved to the extension's IndexedDB (`lib/capture-store.js`), and the viewer opens as `viewer.html?id=<captureId>` and reads the capture directly from there (no id: latest capture). Viewports are stored as PNG Blobs, not one big runtime message.
 - **Automatic pruning:** keep the newest 5 captures plus anything under 24 hours, 20 at most. Runs on worker startup and after each save (no timers).
 - **Console capture is real now.** The old wrapper ran in the content script's isolated world and never saw the page's own `console.log`. The worker now injects a temporary hook into the page's MAIN world (`chrome.scripting.executeScript` with `world: 'MAIN'`). It relays entries to the content script over `window.postMessage` on a per-capture token and restores the page's console when the capture ends (or after 5 minutes if a capture is abandoned). The README's `console.log` promise is now accurate.
@@ -24,7 +28,7 @@ No permissions were added: still `activeTab`, `scripting`, `storage`. IndexedDB 
 5. Upload `dist/PageGobbler-v<version>.zip`.
 6. Fill in the listing from `store-assets/STORE_LISTING.md`.
 7. Fill in the **Privacy practices** tab: single purpose, justifications for `activeTab`, `scripting` (now also mentions the temporary page-console hook) and `storage`, remote code "No", data usage (nothing transmitted; captures stay on the device). Suggested wording is in STORE_LISTING.md.
-8. **Retake screenshots.** The files in `store-assets/` predate the Aug 14, 2026 design refresh (new turkey mark, copper stamp chrome), so they show the old UI. At least one 1280x800 screenshot is required; check the 440x280 promo tile too.
+8. Upload the five `store-assets/screenshot-*-1280x800.png` files in numbered order, plus `promo-small-440x280.png`.
 9. Submit for review.
 
 ## What's next (after submission)

@@ -23,6 +23,7 @@ Only when you explicitly trigger a capture, the extension processes:
 - Page metadata (URL, title, headings, meta tags, links)
 - Visible text content from the page DOM
 - An optional AI-ready Markdown brief generated locally from the capture
+- A clean Markdown copy of the page's main content (`page.md`), distilled locally from the page DOM
 - Console output the page itself logs while it is being captured (`console.*` calls, uncaught errors, unhandled promise rejections). The console hook is added only for the duration of the capture and removed when it ends.
 
 ## Where Captures Are Kept
