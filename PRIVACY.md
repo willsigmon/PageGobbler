@@ -31,6 +31,7 @@ Only when you explicitly trigger a capture, the extension processes:
 - Finished captures are saved on your device in the extension's own IndexedDB storage, so the results page can be reopened or reloaded. This storage belongs to the extension, is not synced to your Google account, and is not readable by websites.
 - Old captures are deleted automatically: PageGobbler keeps your 5 most recent captures plus any made in the last 24 hours (never more than 20), and prunes the rest whenever it starts up and after each new capture.
 - Removing the extension deletes all stored captures.
+- Incognito tabs are never captured, so nothing from an incognito window is stored.
 - Captures are never transmitted anywhere. Files leave the extension only when you download them or copy text to your clipboard.
 - Settings (compression, quality, and similar options) are saved with `chrome.storage.local` on your device.
 

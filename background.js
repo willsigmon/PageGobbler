@@ -114,6 +114,12 @@ async function handleStartCapture(tabId) {
     return markStartFailed('Chrome blocks capture on browser/internal pages.');
   }
 
+  // Captures are saved to the extension's IndexedDB, which incognito tabs
+  // share with regular browsing (default spanning mode). Leave no tracks.
+  if (tab.incognito) {
+    return markStartFailed('PageGobbler does not capture incognito tabs, so nothing from them is stored.');
+  }
+
   // Badge: show capturing state
   chrome.action.setBadgeTextColor({ color: '#1a1008' });
   chrome.action.setBadgeBackgroundColor({ color: '#D4762C' });
@@ -391,6 +397,7 @@ function pageConsoleHook(token) {
   if (previous && typeof previous.restore === 'function') previous.restore();
 
   const originals = {};
+  const wrappers = {};
   let sent = 0;
   let active = true;
 
@@ -406,17 +413,26 @@ function pageConsoleHook(token) {
     const tag = Object.prototype.toString.call(value).slice(8, -1);
     if (depth >= MAX_DEPTH) return Array.isArray(value) ? `Array(${value.length})` : `[${tag}]`;
     seen.add(value);
-    // Arrays: index the first few instead of listing every key of a huge array.
-    const keys = Array.isArray(value)
-      ? Array.from({ length: Math.min(value.length, MAX_KEYS) }, (_, i) => String(i))
-      : Object.keys(value);
-    const total = Array.isArray(value) ? value.length : keys.length;
+    // Collect at most MAX_KEYS + 1 keys (the extra one only says "more"),
+    // never the full key list of a huge object or array.
+    const keys = [];
+    if (Array.isArray(value)) {
+      for (let i = 0; i < Math.min(value.length, MAX_KEYS + 1); i += 1) keys.push(String(i));
+    } else {
+      for (const key in value) {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+        keys.push(key);
+        if (keys.length > MAX_KEYS) break;
+      }
+    }
+    const more = Array.isArray(value) ? value.length - MAX_KEYS : (keys.length > MAX_KEYS ? null : 0);
     const parts = keys.slice(0, MAX_KEYS).map((key) => {
       const desc = Object.getOwnPropertyDescriptor(value, key);
       const shown = desc && 'value' in desc ? preview(desc.value, depth + 1, seen) : '[Getter]';
       return Array.isArray(value) ? shown : `${key}: ${shown}`;
     });
-    if (total > MAX_KEYS) parts.push(`… ${total - MAX_KEYS} more`);
+    if (more === null) parts.push('…');
+    else if (more > 0) parts.push(`… ${more} more`);
     seen.delete(value);
     return Array.isArray(value) ? `[${parts.join(', ')}]` : `${tag === 'Object' ? '' : `${tag} `}{${parts.join(', ')}}`;
   };
@@ -451,12 +467,13 @@ function pageConsoleHook(token) {
     const original = console[method];
     if (typeof original !== 'function') return;
     originals[method] = original;
-    console[method] = function pageGobblerConsole(...args) {
+    wrappers[method] = function pageGobblerConsole(...args) {
       try {
         relay(method, args.map(describe).join(' '));
       } catch (_) { /* never break the page's logging */ }
       return original.apply(this, args);
     };
+    console[method] = wrappers[method];
   });
 
   const onError = (event) => {
@@ -472,8 +489,9 @@ function pageConsoleHook(token) {
     if (!active) return;
     active = false;
     clearTimeout(safetyTimer);
+    // Only undo our own wrapper; keep any replacement the page made since.
     Object.keys(originals).forEach((method) => {
-      console[method] = originals[method];
+      if (console[method] === wrappers[method]) console[method] = originals[method];
     });
     window.removeEventListener('error', onError);
     window.removeEventListener('unhandledrejection', onRejection);
