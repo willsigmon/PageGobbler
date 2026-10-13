@@ -206,66 +206,82 @@ const ZipBuilder = (() => {
 
   // ── Step 2: Smart Section ─────────────────────────────────────────────
 
-  // A page too tall for one canvas is always split, even with sections off,
-  // so a long page still comes back whole instead of failing.
+  // Captures after the first are decoded while sections render, so a bad
+  // viewport surfaces here rather than in stitch().
   let sections;
-  if (settings.enableSections || !ImageProcessor.fitsSingleCanvas(fullCanvas)) {
-    setStatus('Finding smart section break points...', 40);
-    sections = await ImageProcessor.smartSection(fullCanvas, {
-      sectionMaxHeight: settings.sectionMaxHeight,
-    });
-    setStatus(`Split into ${sections.length} section(s)`, 50);
-  } else {
-    sections = [{ startY: 0, endY: fullCanvas.height, width: fullCanvas.width, height: fullCanvas.height, index: 0 }];
-  }
-
-  // ── Step 3: Compress each section ─────────────────────────────────────
-
-  // Sections encode in parallel (a few at a time to bound memory): Chrome
-  // runs each toBlob encode off the main thread, so this is ~2.5x faster
-  // than one at a time on multi-section pages.
-  const COMPRESS_CONCURRENCY = 4;
-  processedSections = new Array(sections.length);
-  let compressedCount = 0;
-  let nextSection = 0;
-  setStatus(`Compressing ${sections.length} section(s)...`, 50);
-
-  async function compressWorker() {
-    while (nextSection < sections.length) {
-      const i = nextSection++;
-      // Draw the section only now and free it right after encoding, so at
-      // most COMPRESS_CONCURRENCY sections are held in memory at once.
-      const canvas = await ImageProcessor.renderSection(fullCanvas, sections[i]);
-      const result = await ImageProcessor.compress(canvas, {
-        maxFileSizeMB: settings.maxFileSizeMB,
-        compressionStrategy: settings.compressionStrategy,
-        quality: settings.quality,
+  let renderFailed = false;
+  try {
+    // A page too tall for one canvas is always split, even with sections off,
+    // so a long page still comes back whole instead of failing.
+    if (settings.enableSections || !ImageProcessor.fitsSingleCanvas(fullCanvas)) {
+      setStatus('Finding smart section break points...', 40);
+      sections = await ImageProcessor.smartSection(fullCanvas, {
+        sectionMaxHeight: settings.sectionMaxHeight,
       });
-      canvas.width = 0;
-      canvas.height = 0;
-
-      const url = URL.createObjectURL(result.blob);
-      processedSections[i] = {
-        ...sections[i],
-        blob: result.blob,
-        url,
-        format: result.format,
-        quality: result.quality,
-        scaled: result.scaled,
-        scaleFactor: result.scaleFactor,
-        overLimit: result.overLimit === true,
-        sizeMB: (result.blob.size / (1024 * 1024)).toFixed(2),
-      };
-
-      compressedCount++;
-      const pct = 50 + Math.round((compressedCount / sections.length) * 25);
-      setStatus(`Compressed ${compressedCount} of ${sections.length} section(s)...`, pct);
+      setStatus(`Split into ${sections.length} section(s)`, 50);
+    } else {
+      sections = [{ startY: 0, endY: fullCanvas.height, width: fullCanvas.width, height: fullCanvas.height, index: 0 }];
     }
-  }
 
-  await Promise.all(
-    Array.from({ length: Math.min(COMPRESS_CONCURRENCY, sections.length) }, compressWorker)
-  );
+    // ── Step 3: Compress each section ─────────────────────────────────────
+
+    // Sections encode in parallel (a few at a time to bound memory): Chrome
+    // runs each toBlob encode off the main thread, so this is ~2.5x faster
+    // than one at a time on multi-section pages.
+    const COMPRESS_CONCURRENCY = 4;
+    processedSections = new Array(sections.length);
+    let compressedCount = 0;
+    let nextSection = 0;
+    setStatus(`Compressing ${sections.length} section(s)...`, 50);
+
+    async function compressWorker() {
+      while (!renderFailed && nextSection < sections.length) {
+        const i = nextSection++;
+        // Draw the section only now and free it right after encoding, so at
+        // most COMPRESS_CONCURRENCY sections are held in memory at once.
+        const canvas = await ImageProcessor.renderSection(fullCanvas, sections[i]);
+        const result = await ImageProcessor.compress(canvas, {
+          maxFileSizeMB: settings.maxFileSizeMB,
+          compressionStrategy: settings.compressionStrategy,
+          quality: settings.quality,
+        });
+        canvas.width = 0;
+        canvas.height = 0;
+        if (renderFailed) return;
+
+        const url = URL.createObjectURL(result.blob);
+        processedSections[i] = {
+          ...sections[i],
+          blob: result.blob,
+          url,
+          format: result.format,
+          quality: result.quality,
+          scaled: result.scaled,
+          scaleFactor: result.scaleFactor,
+          overLimit: result.overLimit === true,
+          sizeMB: (result.blob.size / (1024 * 1024)).toFixed(2),
+        };
+
+        compressedCount++;
+        const pct = 50 + Math.round((compressedCount / sections.length) * 25);
+        setStatus(`Compressed ${compressedCount} of ${sections.length} section(s)...`, pct);
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(COMPRESS_CONCURRENCY, sections.length) }, compressWorker)
+    );
+  } catch (err) {
+    renderFailed = true; // stop the other compress workers
+    processedSections.forEach(section => section && URL.revokeObjectURL(section.url));
+    processedSections = [];
+    console.error('Rendering sections failed:', err);
+    setStatus(`Stitch error: ${err.message}`, 50, true);
+    renderNoCaptureState(err.message);
+    return;
+  } finally {
+    ImageProcessor.releasePage(fullCanvas);
+  }
 
   // ── Step 4: Extract Page Text ────────────────────────────────────────
 
