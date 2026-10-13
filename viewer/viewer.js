@@ -179,7 +179,7 @@ const ZipBuilder = (() => {
 
   setStatus(`Stitching ${captures.length} viewport captures...`, 15);
 
-  let fullCanvas;
+  let fullCanvas; // the stitched page: { width, height, pieces }
   try {
     fullCanvas = await ImageProcessor.stitch(captures, pageInfo);
   } catch (err) {
@@ -193,16 +193,17 @@ const ZipBuilder = (() => {
 
   // ── Step 2: Smart Section ─────────────────────────────────────────────
 
+  // A page too tall for one canvas is always split, even with sections off,
+  // so a long page still comes back whole instead of failing.
   let sections;
-  if (settings.enableSections) {
+  if (settings.enableSections || !ImageProcessor.fitsSingleCanvas(fullCanvas)) {
     setStatus('Finding smart section break points...', 40);
     sections = ImageProcessor.smartSection(fullCanvas, {
       sectionMaxHeight: settings.sectionMaxHeight,
-      devicePixelRatio: pageInfo.devicePixelRatio,
     });
     setStatus(`Split into ${sections.length} section(s)`, 50);
   } else {
-    sections = [{ canvas: fullCanvas, startY: 0, endY: fullCanvas.height, index: 0 }];
+    sections = [{ canvas: ImageProcessor.toCanvas(fullCanvas), startY: 0, endY: fullCanvas.height, index: 0 }];
   }
 
   // ── Step 3: Compress each section ─────────────────────────────────────
