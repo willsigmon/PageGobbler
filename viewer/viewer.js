@@ -211,7 +211,7 @@ const ZipBuilder = (() => {
   let sections;
   if (settings.enableSections || !ImageProcessor.fitsSingleCanvas(fullCanvas)) {
     setStatus('Finding smart section break points...', 40);
-    sections = ImageProcessor.smartSection(fullCanvas, {
+    sections = await ImageProcessor.smartSection(fullCanvas, {
       sectionMaxHeight: settings.sectionMaxHeight,
     });
     setStatus(`Split into ${sections.length} section(s)`, 50);
@@ -235,7 +235,7 @@ const ZipBuilder = (() => {
       const i = nextSection++;
       // Draw the section only now and free it right after encoding, so at
       // most COMPRESS_CONCURRENCY sections are held in memory at once.
-      const canvas = ImageProcessor.renderSection(fullCanvas, sections[i]);
+      const canvas = await ImageProcessor.renderSection(fullCanvas, sections[i]);
       const result = await ImageProcessor.compress(canvas, {
         maxFileSizeMB: settings.maxFileSizeMB,
         compressionStrategy: settings.compressionStrategy,
@@ -827,7 +827,7 @@ const ZipBuilder = (() => {
   // Very long or endless pages are captured only down to a viewport cap.
   function truncationNote(info) {
     return info.captureTruncated
-      ? ` (top ${info.pageHeight} of ${info.fullPageHeight} px captured; page was cut off)`
+      ? ` (screenshots cover the top ${info.pageHeight} of ${info.fullPageHeight} px; the text exports are not cut off)`
       : '';
   }
 

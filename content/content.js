@@ -249,9 +249,16 @@
     // If the page loaded more content while scrolling, the screenshots show
     // it, so re-read the page context too. Fixed/sticky chrome is restored
     // first (capturing is over) so headers and nav stay in the text exports.
+    // Feeds that virtualize (drop early rows as new ones load) are left with
+    // only the bottom of the feed in the DOM; keep the first snapshot there
+    // rather than lose the top of the page from the exports.
     if (measurePageHeight() > initialPageHeight) {
       restoreFixedElements();
-      capturedPageInfo = collectPageInfo();
+      const fresh = collectPageInfo();
+      const opening = (capturedPageInfo?.visibleText || '').slice(0, 300);
+      if (!opening || fresh.visibleText.includes(opening)) {
+        capturedPageInfo = fresh;
+      }
     }
 
     const pageInfo = {
