@@ -216,7 +216,7 @@ const ZipBuilder = (() => {
     });
     setStatus(`Split into ${sections.length} section(s)`, 50);
   } else {
-    sections = [{ canvas: ImageProcessor.toCanvas(fullCanvas), startY: 0, endY: fullCanvas.height, index: 0 }];
+    sections = [{ startY: 0, endY: fullCanvas.height, width: fullCanvas.width, height: fullCanvas.height, index: 0 }];
   }
 
   // ── Step 3: Compress each section ─────────────────────────────────────
@@ -233,11 +233,16 @@ const ZipBuilder = (() => {
   async function compressWorker() {
     while (nextSection < sections.length) {
       const i = nextSection++;
-      const result = await ImageProcessor.compress(sections[i].canvas, {
+      // Draw the section only now and free it right after encoding, so at
+      // most COMPRESS_CONCURRENCY sections are held in memory at once.
+      const canvas = ImageProcessor.renderSection(fullCanvas, sections[i]);
+      const result = await ImageProcessor.compress(canvas, {
         maxFileSizeMB: settings.maxFileSizeMB,
         compressionStrategy: settings.compressionStrategy,
         quality: settings.quality,
       });
+      canvas.width = 0;
+      canvas.height = 0;
 
       const url = URL.createObjectURL(result.blob);
       processedSections[i] = {
@@ -384,7 +389,7 @@ const ZipBuilder = (() => {
       card.className = 'section-card';
 
       const formatLabel = s.format.split('/')[1].toUpperCase();
-      const dims = `${s.canvas.width} x ${s.canvas.height}`;
+      const dims = `${s.width} x ${s.height}`;
 
       // Build header
       const header = document.createElement('div');
@@ -852,7 +857,7 @@ const ZipBuilder = (() => {
       .map((s, i) => {
         const scale = s.scaled ? `, scaled ${Math.round((s.scaleFactor || 1) * 100)}%` : '';
         const overLimit = s.overLimit ? ', over target' : '';
-        return `- section_${i + 1}.${s.format.split('/')[1]}: ${s.canvas.width}x${s.canvas.height}, ${s.sizeMB} MB, ${s.format}, quality ${Math.round(s.quality * 100)}%${scale}${overLimit}`;
+        return `- section_${i + 1}.${s.format.split('/')[1]}: ${s.width}x${s.height}, ${s.sizeMB} MB, ${s.format}, quality ${Math.round(s.quality * 100)}%${scale}${overLimit}`;
       })
       .join('\n');
 

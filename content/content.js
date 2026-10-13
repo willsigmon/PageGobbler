@@ -31,6 +31,7 @@
   let fullPageHeight = 0; // the page's real height, before any cap
   let coveredBottom = 0;  // lowest page row captured so far
   let previousCoveredBottom = 0;
+  let initialPageHeight = 0;
   let originalScrollY = 0;
   let originalScrollBehavior = '';
   let originalHtmlOverflow = '';
@@ -154,6 +155,7 @@
     // Measure full page
     viewportHeight = window.innerHeight;
     updatePageHeight();
+    initialPageHeight = fullPageHeight;
     scrollIndex = 0;
     coveredBottom = 0;
     previousCoveredBottom = 0;
@@ -243,6 +245,14 @@
   async function finishCapture() {
     // Restore the page's console before packaging, so the log is complete.
     await stopConsoleCapture();
+
+    // If the page loaded more content while scrolling, the screenshots show
+    // it, so re-read the page context too. Fixed/sticky chrome is restored
+    // first (capturing is over) so headers and nav stay in the text exports.
+    if (measurePageHeight() > initialPageHeight) {
+      restoreFixedElements();
+      capturedPageInfo = collectPageInfo();
+    }
 
     const pageInfo = {
       ...(capturedPageInfo || collectPageInfo()),
