@@ -190,7 +190,7 @@ const ZipBuilder = (() => {
 
   setStatus(`Stitching ${captures.length} viewport captures...`, 15);
 
-  let fullCanvas;
+  let fullCanvas; // the stitched page: { width, height, pieces }
   try {
     fullCanvas = await ImageProcessor.stitch(captures, pageInfo);
   } catch (err) {
@@ -206,43 +206,81 @@ const ZipBuilder = (() => {
 
   // ── Step 2: Smart Section ─────────────────────────────────────────────
 
+  // Captures after the first are decoded while sections render, so a bad
+  // viewport surfaces here rather than in stitch().
   let sections;
-  if (settings.enableSections) {
-    setStatus('Finding smart section break points...', 40);
-    sections = ImageProcessor.smartSection(fullCanvas, {
-      sectionMaxHeight: settings.sectionMaxHeight,
-      devicePixelRatio: pageInfo.devicePixelRatio,
-    });
-    setStatus(`Split into ${sections.length} section(s)`, 50);
-  } else {
-    sections = [{ canvas: fullCanvas, startY: 0, endY: fullCanvas.height, index: 0 }];
-  }
+  let renderFailed = false;
+  try {
+    // A page too tall for one canvas is always split, even with sections off,
+    // so a long page still comes back whole instead of failing.
+    if (settings.enableSections || !ImageProcessor.fitsSingleCanvas(fullCanvas)) {
+      setStatus('Finding smart section break points...', 40);
+      sections = await ImageProcessor.smartSection(fullCanvas, {
+        sectionMaxHeight: settings.sectionMaxHeight,
+      });
+      setStatus(`Split into ${sections.length} section(s)`, 50);
+    } else {
+      sections = [{ startY: 0, endY: fullCanvas.height, width: fullCanvas.width, height: fullCanvas.height, index: 0 }];
+    }
 
-  // ── Step 3: Compress each section ─────────────────────────────────────
+    // ── Step 3: Compress each section ─────────────────────────────────────
 
-  processedSections = [];
-  for (let i = 0; i < sections.length; i++) {
-    const pct = 50 + Math.round((i / sections.length) * 25);
-    setStatus(`Compressing section ${i + 1} of ${sections.length}...`, pct);
+    // Sections encode in parallel (a few at a time to bound memory): Chrome
+    // runs each toBlob encode off the main thread, so this is ~2.5x faster
+    // than one at a time on multi-section pages.
+    const COMPRESS_CONCURRENCY = 4;
+    processedSections = new Array(sections.length);
+    let compressedCount = 0;
+    let nextSection = 0;
+    setStatus(`Compressing ${sections.length} section(s)...`, 50);
 
-    const result = await ImageProcessor.compress(sections[i].canvas, {
-      maxFileSizeMB: settings.maxFileSizeMB,
-      compressionStrategy: settings.compressionStrategy,
-      quality: settings.quality,
-    });
+    async function compressWorker() {
+      while (!renderFailed && nextSection < sections.length) {
+        const i = nextSection++;
+        // Draw the section only now and free it right after encoding, so at
+        // most COMPRESS_CONCURRENCY sections are held in memory at once.
+        const canvas = await ImageProcessor.renderSection(fullCanvas, sections[i]);
+        const result = await ImageProcessor.compress(canvas, {
+          maxFileSizeMB: settings.maxFileSizeMB,
+          compressionStrategy: settings.compressionStrategy,
+          quality: settings.quality,
+        });
+        canvas.width = 0;
+        canvas.height = 0;
+        if (renderFailed) return;
 
-    const url = URL.createObjectURL(result.blob);
-    processedSections.push({
-      ...sections[i],
-      blob: result.blob,
-      url,
-      format: result.format,
-      quality: result.quality,
-      scaled: result.scaled,
-      scaleFactor: result.scaleFactor,
-      overLimit: result.overLimit === true,
-      sizeMB: (result.blob.size / (1024 * 1024)).toFixed(2),
-    });
+        const url = URL.createObjectURL(result.blob);
+        processedSections[i] = {
+          ...sections[i],
+          blob: result.blob,
+          url,
+          format: result.format,
+          quality: result.quality,
+          scaled: result.scaled,
+          scaleFactor: result.scaleFactor,
+          overLimit: result.overLimit === true,
+          sizeMB: (result.blob.size / (1024 * 1024)).toFixed(2),
+        };
+
+        compressedCount++;
+        const pct = 50 + Math.round((compressedCount / sections.length) * 25);
+        setStatus(`Compressed ${compressedCount} of ${sections.length} section(s)...`, pct);
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(COMPRESS_CONCURRENCY, sections.length) }, compressWorker)
+    );
+  } catch (err) {
+    renderFailed = true; // stop the other compress workers
+    processedSections.forEach(section => section && URL.revokeObjectURL(section.url));
+    processedSections = [];
+    console.error('Rendering sections failed:', err);
+    setStatus(`Stitch error: ${err.message}`, 50, true);
+    renderNoCaptureState(err.message);
+    return;
+  } finally {
+    ImageProcessor.releasePage(fullCanvas);
   }
 
   // ── Step 4: Extract Page Text ────────────────────────────────────────
@@ -280,6 +318,9 @@ const ZipBuilder = (() => {
       devicePixelRatio: pageInfo.devicePixelRatio,
       capturedWidth: fullCanvas.width,
       capturedHeight: fullCanvas.height,
+      captureTruncated: pageInfo.captureTruncated === true,
+      captureLimitReached: pageInfo.captureLimitReached === true,
+      fullPageHeight: pageInfo.fullPageHeight || pageInfo.pageHeight,
     },
     sections: processedSections.map((s, i) => ({
       index: i,
@@ -336,7 +377,7 @@ const ZipBuilder = (() => {
 
   // ── Done ──────────────────────────────────────────────────────────────
 
-  setStatus(`Done — ${processedSections.length} section(s), total ${totalSizeMB(processedSections)} MB`, 100);
+  setStatus(`Done — ${processedSections.length} section(s), total ${totalSizeMB(processedSections)} MB${truncationNote(pageInfo)}`, 100);
   statusBar.classList.add('done');
 
   btnDownloadAll.disabled = false;
@@ -365,7 +406,7 @@ const ZipBuilder = (() => {
       card.className = 'section-card';
 
       const formatLabel = s.format.split('/')[1].toUpperCase();
-      const dims = `${s.canvas.width} x ${s.canvas.height}`;
+      const dims = `${s.width} x ${s.height}`;
 
       // Build header
       const header = document.createElement('div');
@@ -417,7 +458,7 @@ const ZipBuilder = (() => {
       { label: 'URL', value: info.url, isLink: true },
       { label: 'Title', value: info.title },
       { label: 'Captured', value: info.capturedAt },
-      { label: 'Page Size', value: `${info.viewportWidth} x ${info.pageHeight} px` },
+      { label: 'Page Size', value: `${info.viewportWidth} x ${info.pageHeight} px${truncationNote(info)}` },
       { label: 'Device Pixel Ratio', value: `${info.devicePixelRatio}x` },
       { label: 'Language', value: info.documentLang },
       { label: 'Links', value: `${info.linkCount || 0} captured` },
@@ -800,6 +841,15 @@ const ZipBuilder = (() => {
       .replace(/'/g, '&#039;');
   }
 
+  // Very long or endless pages are captured only down to a viewport cap.
+  function truncationNote(info) {
+    if (!info.captureTruncated) return '';
+    if (info.fullPageHeight > info.pageHeight) {
+      return ` (screenshots cover the top ${info.pageHeight} of ${info.fullPageHeight} px; the text exports are not cut off)`;
+    }
+    return ' (scrolling stopped at the 60-screen limit; the page may load more below this)';
+  }
+
   function turkeyIconSVG() {
     return `<img src="../icons/turkey-32.svg" width="32" height="32" alt="">`;
   }
@@ -826,7 +876,7 @@ const ZipBuilder = (() => {
       .map((s, i) => {
         const scale = s.scaled ? `, scaled ${Math.round((s.scaleFactor || 1) * 100)}%` : '';
         const overLimit = s.overLimit ? ', over target' : '';
-        return `- section_${i + 1}.${s.format.split('/')[1]}: ${s.canvas.width}x${s.canvas.height}, ${s.sizeMB} MB, ${s.format}, quality ${Math.round(s.quality * 100)}%${scale}${overLimit}`;
+        return `- section_${i + 1}.${s.format.split('/')[1]}: ${s.width}x${s.height}, ${s.sizeMB} MB, ${s.format}, quality ${Math.round(s.quality * 100)}%${scale}${overLimit}`;
       })
       .join('\n');
 
@@ -840,7 +890,7 @@ const ZipBuilder = (() => {
       `- Language: ${info.documentLang || 'unknown'}`,
       '',
       '## Capture',
-      `- Page size: ${info.viewportWidth} x ${info.pageHeight} CSS px`,
+      `- Page size: ${info.viewportWidth} x ${info.pageHeight} CSS px${truncationNote(info)}`,
       `- Device pixel ratio: ${info.devicePixelRatio || 1}x`,
       `- Viewport captures: ${metadata.processing.totalCaptures}`,
       `- Output sections: ${sectionList.length}`,

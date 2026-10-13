@@ -19,12 +19,19 @@
   window.__gobbleInjected = true;
 
   const SETTLE_DELAY_MS = 350;
+  // ~33s at Chrome's 2 captures/sec. Stops endless feeds and huge pages from
+  // running for minutes; the result says where it was cut off.
+  const MAX_VIEWPORTS = 60;
   const MAX_CONSOLE_ENTRIES = 200;
 
   let scrollIndex = 0;
   let totalScrolls = 0;
   let pageHeight = 0;
   let viewportHeight = 0;
+  let fullPageHeight = 0; // the page's real height, before any cap
+  let coveredBottom = 0;  // lowest page row captured so far
+  let previousCoveredBottom = 0;
+  let initialPageHeight = 0;
   let originalScrollY = 0;
   let originalScrollBehavior = '';
   let originalHtmlOverflow = '';
@@ -146,16 +153,12 @@
     document.body.style.overflow = 'visible';
 
     // Measure full page
-    pageHeight = Math.max(
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight,
-      document.documentElement.clientHeight
-    );
     viewportHeight = window.innerHeight;
-    totalScrolls = Math.ceil(pageHeight / viewportHeight);
+    updatePageHeight();
+    initialPageHeight = fullPageHeight;
     scrollIndex = 0;
+    coveredBottom = 0;
+    previousCoveredBottom = 0;
 
     // Capture page context before we hide fixed/sticky chrome for screenshot stitching.
     // Otherwise headers/nav/cookie bars can disappear from text, links, and DOM exports.
@@ -177,14 +180,42 @@
       applyFixedElementHiding();
     }
 
-    if (scrollIndex >= totalScrolls) {
-      finishCapture();
+    // Pages that load more content as you scroll (feeds, lazy sections)
+    // grow mid-capture; keep going until the cap instead of dropping it.
+    updatePageHeight();
+
+    // If the last scroll made no progress, the page can't scroll further:
+    // treat what we have as the whole page.
+    const stalled = scrollIndex > 1 && coveredBottom === previousCoveredBottom;
+    previousCoveredBottom = coveredBottom;
+
+    // Continue from what was actually captured, not from index * height: if
+    // the page hadn't grown yet when we scrolled, the browser clamped the
+    // scroll, and stepping by index would leave a blank band in the image.
+    const targetY = coveredBottom;
+    if (scrollIndex >= MAX_VIEWPORTS || targetY >= pageHeight || stalled) {
+      finishCapture({ atLimit: scrollIndex >= MAX_VIEWPORTS && !stalled });
       return;
     }
 
-    const targetY = scrollIndex * viewportHeight;
     window.scrollTo(0, targetY);
     waitForSettleThenCapture();
+  }
+
+  function measurePageHeight() {
+    return Math.max(
+      document.body.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight,
+      document.documentElement.clientHeight
+    );
+  }
+
+  function updatePageHeight() {
+    fullPageHeight = measurePageHeight();
+    pageHeight = Math.min(fullPageHeight, MAX_VIEWPORTS * viewportHeight);
+    totalScrolls = Math.ceil(pageHeight / viewportHeight);
   }
 
   function waitForSettleThenCapture() {
@@ -199,6 +230,7 @@
     const currentY = window.scrollY;
     const remaining = pageHeight - currentY;
     const clipHeight = Math.min(viewportHeight, remaining);
+    coveredBottom = Math.max(coveredBottom, currentY + clipHeight);
 
     chrome.runtime.sendMessage({
       action: 'capture-viewport',
@@ -210,12 +242,39 @@
     });
   }
 
-  async function finishCapture() {
+  async function finishCapture({ atLimit = false } = {}) {
     // Restore the page's console before packaging, so the log is complete.
     await stopConsoleCapture();
 
+    // If the page loaded more content while scrolling, the screenshots show
+    // it, so re-read the page context too. Fixed/sticky chrome is restored
+    // first (capturing is over) so headers and nav stay in the text exports.
+    // Feeds that virtualize (drop early rows as new ones load) are left with
+    // only the bottom of the feed in the DOM; keep the first snapshot there
+    // rather than lose the top of the page from the exports.
+    // Re-measure: content can load after the last scroll step (for example
+    // while the console hook is restored), and the exports should say so.
+    fullPageHeight = Math.max(fullPageHeight, measurePageHeight());
+    const grew = fullPageHeight > initialPageHeight;
+    if (grew) {
+      restoreFixedElements();
+      const fresh = collectPageInfo();
+      if (keepsInitialText(capturedPageInfo?.visibleText || '', fresh.visibleText)) {
+        capturedPageInfo = fresh;
+      }
+    }
+
+    // A page that kept growing until the viewport limit may have more to
+    // load even if the last capture reached its current bottom.
+    const limitReached = atLimit && grew;
+
     const pageInfo = {
       ...(capturedPageInfo || collectPageInfo()),
+      // Height may have grown while scrolling; report what was captured.
+      pageHeight: coveredBottom,
+      fullPageHeight,
+      captureTruncated: fullPageHeight > coveredBottom || limitReached,
+      captureLimitReached: limitReached,
       capturedAt: new Date().toISOString(),
       consoleLogs: [...capturedConsole],
     };
@@ -223,6 +282,18 @@
     chrome.runtime.sendMessage({
       action: 'capture-complete',
       pageInfo,
+    });
+  }
+
+  // Whether a re-read page still has the text first collected. Samples are
+  // taken through the whole first snapshot, not just its opening, so a
+  // header that stays mounted can't hide feed rows that were dropped.
+  function keepsInitialText(initial, fresh) {
+    const SAMPLE = 120;
+    const starts = [0, 0.25, 0.5, 0.75].map(f => Math.floor(f * Math.max(0, initial.length - SAMPLE)));
+    return starts.every(start => {
+      const sample = initial.slice(start, start + SAMPLE);
+      return !sample.trim() || fresh.includes(sample);
     });
   }
 
@@ -235,6 +306,8 @@
     restoreFixedElements();
     stopConsoleCapture();
     capturedPageInfo = null;
+    fullPageHeight = 0;
+    coveredBottom = 0;
     document.documentElement.style.scrollBehavior = originalScrollBehavior;
     document.documentElement.style.overflow = originalHtmlOverflow;
     document.body.style.overflow = originalBodyOverflow;

@@ -14,6 +14,7 @@
  *   4. After the service worker is stopped (CDP ServiceWorker.stopAllWorkers),
  *      reloading the viewer still loads the capture from IndexedDB, and
  *      viewer.html without an id falls back to the latest capture.
+ *   5. A capture with an unreadable viewport reaches the error state.
  *
  * Automation cannot grant activeTab, so the test copies the extension into a
  * temp directory and adds host_permissions: ["<all_urls>"] to that copy only.
@@ -243,6 +244,21 @@ async function main() {
       null, { timeout: TIMEOUT_MS });
     check('unknown capture id shows a clear message',
       (await missing.textContent('#status-text')).includes('no longer stored'));
+
+    // Viewports after the first are decoded while sections render; an
+    // unreadable one must still reach the error state, not hang the viewer.
+    await missing.evaluate(async (id) => {
+      const store = globalThis.PageGobblerCaptureStore;
+      const record = await store.getCapture(id);
+      record.captures[record.captures.length - 1].blob = new Blob(['not an image'], { type: 'image/png' });
+      await store.saveCapture({ ...record, id: 'corrupt-viewport', createdAt: 1 });
+    }, captureId);
+    const corrupt = await context.newPage();
+    await corrupt.goto(extUrl('viewer/viewer.html?id=corrupt-viewport'));
+    await corrupt.waitForFunction(() => document.getElementById('status-bar').classList.contains('error'),
+      null, { timeout: TIMEOUT_MS });
+    check('unreadable viewport shows the error state',
+      (await corrupt.textContent('#status-text')).includes('error'), await corrupt.textContent('#status-text'));
   } finally {
     await context?.close().catch(() => {});
     server.close();
