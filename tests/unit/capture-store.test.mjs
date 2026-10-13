@@ -55,3 +55,38 @@ test('capture ids are unique, URL-safe and time-ordered', () => {
   const seen = new Set(Array.from({ length: 500 }, () => store.createCaptureId()));
   assert.equal(seen.size, 500);
 });
+
+const quotaError = () => Object.assign(new Error('full'), { name: 'QuotaExceededError' });
+
+test('recognizes storage-full errors', () => {
+  assert.equal(store.isQuotaError(quotaError()), true);
+  assert.equal(store.isQuotaError({ code: 22 }), true);
+  assert.equal(store.isQuotaError(new Error('other')), false);
+  assert.equal(store.isQuotaError(null), false);
+});
+
+test('evicts old captures until a save fits', async () => {
+  let room = 0;
+  const evicted = [];
+  const pending = ['c0', 'c1', 'c2'];
+  const result = await store.retryAfterEviction(
+    async () => { if (room < 2) throw quotaError(); return 'saved'; },
+    async () => { const id = pending.shift(); if (!id) return false; evicted.push(id); room += 1; return true; },
+  );
+  assert.equal(result, 'saved');
+  assert.deepEqual(evicted, ['c0', 'c1']);
+});
+
+test('gives up with the storage error when nothing is left to evict', async () => {
+  const err = quotaError();
+  await assert.rejects(store.retryAfterEviction(async () => { throw err; }, async () => false), (e) => e === err);
+});
+
+test('does not evict for errors other than storage full', async () => {
+  let evictions = 0;
+  await assert.rejects(
+    store.retryAfterEviction(async () => { throw new Error('broken'); }, async () => { evictions += 1; return true; }),
+    /broken/,
+  );
+  assert.equal(evictions, 0);
+});

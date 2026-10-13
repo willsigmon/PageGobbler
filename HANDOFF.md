@@ -9,6 +9,7 @@ Code is ready for Chrome Web Store submission. Version in `manifest.json` is sti
 ### What changed on October 12
 - **Store images are ready.** Five 1280x800 screenshots (popup, viewer, Markdown tab, AI Brief tab, settings) and the 440x280 promo tile were regenerated from the real extension UI with the Aug 14 design. `scripts/store-screenshots.mjs` rebuilds them after any UI change. The old pre-redesign screenshots were removed so they can't be uploaded by mistake.
 - **Merged with the Markdown export** (PR #2) so the store build includes `page.md`. The listing copy and PRIVACY.md mention it.
+- **A full store no longer blocks new captures.** If saving hits the storage quota, the oldest earlier captures are deleted one at a time until the new one fits. The most recent earlier capture is always kept, so the store is never emptied.
 
 ### What changed on September 23
 - **Captures survive the service worker stopping.** Finished captures used to live in a worker variable with a 10-minute timer, so reloading the results page after Chrome idled the worker showed "No capture data found." They are now saved to the extension's IndexedDB (`lib/capture-store.js`), and the viewer opens as `viewer.html?id=<captureId>` and reads the capture directly from there (no id: latest capture). Viewports are stored as PNG Blobs, not one big runtime message.
