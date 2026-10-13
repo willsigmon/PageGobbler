@@ -319,6 +319,7 @@ const ZipBuilder = (() => {
       capturedWidth: fullCanvas.width,
       capturedHeight: fullCanvas.height,
       captureTruncated: pageInfo.captureTruncated === true,
+      captureLimitReached: pageInfo.captureLimitReached === true,
       fullPageHeight: pageInfo.fullPageHeight || pageInfo.pageHeight,
     },
     sections: processedSections.map((s, i) => ({
@@ -842,9 +843,11 @@ const ZipBuilder = (() => {
 
   // Very long or endless pages are captured only down to a viewport cap.
   function truncationNote(info) {
-    return info.captureTruncated
-      ? ` (screenshots cover the top ${info.pageHeight} of ${info.fullPageHeight} px; the text exports are not cut off)`
-      : '';
+    if (!info.captureTruncated) return '';
+    if (info.fullPageHeight > info.pageHeight) {
+      return ` (screenshots cover the top ${info.pageHeight} of ${info.fullPageHeight} px; the text exports are not cut off)`;
+    }
+    return ' (scrolling stopped at the 60-screen limit; the page may load more below this)';
   }
 
   function turkeyIconSVG() {

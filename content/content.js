@@ -194,7 +194,7 @@
     // scroll, and stepping by index would leave a blank band in the image.
     const targetY = coveredBottom;
     if (scrollIndex >= MAX_VIEWPORTS || targetY >= pageHeight || stalled) {
-      finishCapture();
+      finishCapture({ atLimit: scrollIndex >= MAX_VIEWPORTS && !stalled });
       return;
     }
 
@@ -242,7 +242,7 @@
     });
   }
 
-  async function finishCapture() {
+  async function finishCapture({ atLimit = false } = {}) {
     // Restore the page's console before packaging, so the log is complete.
     await stopConsoleCapture();
 
@@ -252,21 +252,26 @@
     // Feeds that virtualize (drop early rows as new ones load) are left with
     // only the bottom of the feed in the DOM; keep the first snapshot there
     // rather than lose the top of the page from the exports.
-    if (measurePageHeight() > initialPageHeight) {
+    const grew = measurePageHeight() > initialPageHeight;
+    if (grew) {
       restoreFixedElements();
       const fresh = collectPageInfo();
-      const opening = (capturedPageInfo?.visibleText || '').slice(0, 300);
-      if (!opening || fresh.visibleText.includes(opening)) {
+      if (keepsInitialText(capturedPageInfo?.visibleText || '', fresh.visibleText)) {
         capturedPageInfo = fresh;
       }
     }
+
+    // A page that kept growing until the viewport limit may have more to
+    // load even if the last capture reached its current bottom.
+    const limitReached = atLimit && grew;
 
     const pageInfo = {
       ...(capturedPageInfo || collectPageInfo()),
       // Height may have grown while scrolling; report what was captured.
       pageHeight: coveredBottom,
       fullPageHeight,
-      captureTruncated: fullPageHeight > coveredBottom,
+      captureTruncated: fullPageHeight > coveredBottom || limitReached,
+      captureLimitReached: limitReached,
       capturedAt: new Date().toISOString(),
       consoleLogs: [...capturedConsole],
     };
@@ -274,6 +279,18 @@
     chrome.runtime.sendMessage({
       action: 'capture-complete',
       pageInfo,
+    });
+  }
+
+  // Whether a re-read page still has the text first collected. Samples are
+  // taken through the whole first snapshot, not just its opening, so a
+  // header that stays mounted can't hide feed rows that were dropped.
+  function keepsInitialText(initial, fresh) {
+    const SAMPLE = 120;
+    const starts = [0, 0.25, 0.5, 0.75].map(f => Math.floor(f * Math.max(0, initial.length - SAMPLE)));
+    return starts.every(start => {
+      const sample = initial.slice(start, start + SAMPLE);
+      return !sample.trim() || fresh.includes(sample);
     });
   }
 
