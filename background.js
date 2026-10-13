@@ -554,8 +554,15 @@ function pageConsoleHook(token) {
   }
 
   const state = { restore };
-  Object.defineProperty(window, STATE_KEY, { value: state, configurable: true });
-  window.addEventListener('message', onControl);
+  try {
+    Object.defineProperty(window, STATE_KEY, { value: state, configurable: true });
+    window.addEventListener('message', onControl);
+  } catch (err) {
+    // The worker gets no token back on failure, so nothing could stop the
+    // hook later: undo everything installed above now.
+    restore();
+    throw err;
+  }
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────
