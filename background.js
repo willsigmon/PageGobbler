@@ -418,6 +418,11 @@ function pageConsoleHook(token) {
   };
 
   const preview = (value, depth, seen) => {
+    // String(fn) could run a page-defined toString or Symbol.toPrimitive.
+    if (typeof value === 'function') {
+      const name = dataValue(value, 'name');
+      return typeof name === 'string' && name ? `[Function: ${name}]` : '[Function]';
+    }
     if (value === null || typeof value !== 'object') {
       return typeof value === 'string' ? JSON.stringify(value) : String(value);
     }
