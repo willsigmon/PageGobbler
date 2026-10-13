@@ -149,27 +149,38 @@ const ZipBuilder = (() => {
   let pageMarkdown = '';
   let aiBrief = '';
 
-  // ── Load captured data (fetch from background via messaging) ────────────
+  // ── Load captured data (read directly from the extension's IndexedDB) ──
 
   setStatus('Loading capture data...', 5);
 
-  let captureData;
+  const requestedId = new URLSearchParams(window.location.search).get('id');
+  let captureData = null;
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'get-capture-data' });
-    captureData = response?.captureData;
+    const store = globalThis.PageGobblerCaptureStore;
+    captureData = requestedId
+      ? await store.getCapture(requestedId)
+      : await store.getLatestCapture();
   } catch (err) {
-    console.error('Failed to fetch capture data:', err);
+    console.error('Failed to read capture data:', err);
   }
 
   if (!captureData) {
-    setStatus('No capture data found. Gobble a page first!', 100, true);
-    renderNoCaptureState();
+    if (requestedId) {
+      setStatus('This capture is no longer stored. Gobble the page again.', 100, true);
+      renderNoCaptureState('PageGobbler keeps your most recent captures on this device and clears older ones automatically. Gobble the page again to rebuild it.');
+    } else {
+      setStatus('No capture data found. Gobble a page first!', 100, true);
+      renderNoCaptureState();
+    }
     return;
   }
 
-  const { captures, pageInfo, settings } = captureData;
+  const { pageInfo, settings } = captureData;
+  const captures = Array.isArray(captureData.captures)
+    ? captureData.captures.map(toStitchableCapture)
+    : [];
 
-  if (!Array.isArray(captures) || captures.length === 0 || !pageInfo) {
+  if (captures.length === 0 || !pageInfo) {
     setStatus('Capture data was incomplete. Please gobble the page again.', 100, true);
     renderNoCaptureState('The last capture did not include viewport images or page metadata.');
     return;
@@ -187,6 +198,8 @@ const ZipBuilder = (() => {
     setStatus(`Stitch error: ${err.message}`, 15, true);
     renderNoCaptureState(err.message);
     return;
+  } finally {
+    releaseCaptureUrls(captures);
   }
 
   setStatus(`Stitched: ${fullCanvas.width} x ${fullCanvas.height}px`, 30);
@@ -547,6 +560,20 @@ const ZipBuilder = (() => {
   }
 
   // ── Utility Functions ─────────────────────────────────────────────────
+
+  // Stored viewports are Blobs; ImageProcessor.stitch loads from a URL.
+  function toStitchableCapture(capture) {
+    if (capture.blob instanceof Blob) {
+      return { ...capture, dataUrl: URL.createObjectURL(capture.blob), objectUrl: true };
+    }
+    return { ...capture };
+  }
+
+  function releaseCaptureUrls(list) {
+    list.forEach((capture) => {
+      if (capture.objectUrl) URL.revokeObjectURL(capture.dataUrl);
+    });
+  }
 
   function setStatus(text, pct, isError = false) {
     statusText.textContent = text;
