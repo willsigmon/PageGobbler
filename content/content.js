@@ -18,12 +18,18 @@
   window.__gobbleInjected = true;
 
   const SETTLE_DELAY_MS = 350;
+  // ~33s at Chrome's 2 captures/sec. Stops endless feeds and huge pages from
+  // running for minutes; the result says where it was cut off.
+  const MAX_VIEWPORTS = 60;
   const MAX_CONSOLE_ENTRIES = 200;
 
   let scrollIndex = 0;
   let totalScrolls = 0;
   let pageHeight = 0;
   let viewportHeight = 0;
+  let fullPageHeight = 0; // the page's real height, before any cap
+  let coveredBottom = 0;  // lowest page row captured so far
+  let previousCoveredBottom = 0;
   let originalScrollY = 0;
   let originalScrollBehavior = '';
   let originalHtmlOverflow = '';
@@ -148,16 +154,11 @@
     document.body.style.overflow = 'visible';
 
     // Measure full page
-    pageHeight = Math.max(
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight,
-      document.documentElement.clientHeight
-    );
     viewportHeight = window.innerHeight;
-    totalScrolls = Math.ceil(pageHeight / viewportHeight);
+    updatePageHeight();
     scrollIndex = 0;
+    coveredBottom = 0;
+    previousCoveredBottom = 0;
 
     // Capture page context before we hide fixed/sticky chrome for screenshot stitching.
     // Otherwise headers/nav/cookie bars can disappear from text, links, and DOM exports.
@@ -179,14 +180,42 @@
       applyFixedElementHiding();
     }
 
-    if (scrollIndex >= totalScrolls) {
+    // Pages that load more content as you scroll (feeds, lazy sections)
+    // grow mid-capture; keep going until the cap instead of dropping it.
+    updatePageHeight();
+
+    // If the last scroll made no progress, the page can't scroll further:
+    // treat what we have as the whole page.
+    const stalled = scrollIndex > 1 && coveredBottom === previousCoveredBottom;
+    previousCoveredBottom = coveredBottom;
+
+    // Continue from what was actually captured, not from index * height: if
+    // the page hadn't grown yet when we scrolled, the browser clamped the
+    // scroll, and stepping by index would leave a blank band in the image.
+    const targetY = coveredBottom;
+    if (scrollIndex >= MAX_VIEWPORTS || targetY >= pageHeight || stalled) {
       finishCapture();
       return;
     }
 
-    const targetY = scrollIndex * viewportHeight;
     window.scrollTo(0, targetY);
     waitForSettleThenCapture();
+  }
+
+  function measurePageHeight() {
+    return Math.max(
+      document.body.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight,
+      document.documentElement.clientHeight
+    );
+  }
+
+  function updatePageHeight() {
+    fullPageHeight = measurePageHeight();
+    pageHeight = Math.min(fullPageHeight, MAX_VIEWPORTS * viewportHeight);
+    totalScrolls = Math.ceil(pageHeight / viewportHeight);
   }
 
   function waitForSettleThenCapture() {
@@ -201,6 +230,7 @@
     const currentY = window.scrollY;
     const remaining = pageHeight - currentY;
     const clipHeight = Math.min(viewportHeight, remaining);
+    coveredBottom = Math.max(coveredBottom, currentY + clipHeight);
 
     chrome.runtime.sendMessage({
       action: 'capture-viewport',
@@ -215,6 +245,10 @@
   function finishCapture() {
     const pageInfo = {
       ...(capturedPageInfo || collectPageInfo()),
+      // Height may have grown while scrolling; report what was captured.
+      pageHeight: coveredBottom,
+      fullPageHeight,
+      captureTruncated: fullPageHeight > coveredBottom,
       capturedAt: new Date().toISOString(),
       consoleLogs: [...capturedConsole],
     };
@@ -234,6 +268,8 @@
     restoreFixedElements();
     stopConsoleCapture();
     capturedPageInfo = null;
+    fullPageHeight = 0;
+    coveredBottom = 0;
     document.documentElement.style.scrollBehavior = originalScrollBehavior;
     document.documentElement.style.overflow = originalHtmlOverflow;
     document.body.style.overflow = originalBodyOverflow;
