@@ -1,5 +1,26 @@
 # PageGobbler
 
+## Project
+
+Chrome Manifest V3 extension: full-page scroll-and-stitch screenshots, smart compression and sectioning, page text, metadata, design tokens, AI brief, and ZIP export. Vanilla JS with **no build step and no npm dependencies**: the repo folder is the unpacked extension.
+
+- `background.js`: module service worker. Runs the capture, saves finished captures to IndexedDB, injects the MAIN-world console hook.
+- `content/content.js`: injected on demand. Scrolls, measures, and collects metadata plus the relayed console entries.
+- `lib/capture-store.js`: IndexedDB capture store shared by the worker and the viewer (`globalThis.PageGobblerCaptureStore`).
+- `lib/image-processor.js`, `viewer/`, `popup/`: stitching and compression, results page, popup.
+- `ui/tokens.css`: design tokens for popup and viewer. Reuse these tokens and the existing tone in any UI work.
+
+Test and package:
+
+```bash
+for f in $(git ls-files '*.js' '*.mjs'); do node --check "$f"; done
+node --test 'tests/unit/*.test.mjs'
+node tests/e2e.mjs            # Playwright + Chromium; exits non-zero on failure
+./scripts/package.sh          # dist/PageGobbler-v<version>.zip (runtime files only)
+```
+
+Rules: do not add manifest permissions without a clear reason (it changes store review), do not bump the manifest version (the owner sets it), and keep captures on-device (see PRIVACY.md).
+
 <!-- NOT_ANOTHER_AI_WEBSITE_DESIGN_BIBLE_START -->
 ## Global Design Bible: Not-Another-AI-Website
 

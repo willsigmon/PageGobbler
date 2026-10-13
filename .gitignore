@@ -1,0 +1,12 @@
+# Packaged store uploads (scripts/package.sh)
+dist/
+
+# E2E test scratch (tests/e2e.mjs uses the OS temp dir; these cover local runs)
+pgtest/
+pgprof/
+tests/.tmp/
+.e2e-*/
+
+# Local tooling
+node_modules/
+.DS_Store

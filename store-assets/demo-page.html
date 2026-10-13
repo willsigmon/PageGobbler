@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Field Notes on Slow Bread — Hearth Quarterly</title>
+  <meta name="description" content="A long read on wild yeast, patient dough, and the bakers keeping a slower craft alive.">
+  <meta property="og:title" content="Field Notes on Slow Bread">
+  <meta property="og:type" content="article">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Field Notes on Slow Bread","author":{"@type":"Person","name":"Mara Okafor"},"datePublished":"2026-09-18"}</script>
+  <!-- Fictional demo page used only to stage Chrome Web Store screenshots. -->
+  <style>
+    :root {
+      --paper: oklch(96% 0.018 80);
+      --ink: oklch(24% 0.03 50);
+      --muted: oklch(48% 0.03 60);
+      --rule: oklch(86% 0.02 70);
+      --oxblood: oklch(42% 0.13 25);
+      --wheat: oklch(80% 0.09 80);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.65 Georgia, 'Times New Roman', serif; }
+    .mast { display: flex; justify-content: space-between; align-items: baseline; padding: 22px 56px; border-bottom: 1px solid var(--rule); font-family: system-ui, sans-serif; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+    .mast strong { font-family: Georgia, serif; font-size: 22px; letter-spacing: 0.02em; text-transform: none; }
+    .mast nav a { color: var(--muted); text-decoration: none; margin-left: 28px; }
+    .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; padding: 56px 56px 40px; align-items: end; }
+    .eyebrow { font-family: system-ui, sans-serif; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--oxblood); }
+    h1 { font-size: 64px; line-height: 1.02; letter-spacing: -0.02em; margin: 14px 0 18px; font-weight: 400; }
+    .dek { font-size: 21px; color: var(--muted); margin: 0; max-width: 34ch; }
+    .byline { margin-top: 22px; font-family: system-ui, sans-serif; font-size: 13px; color: var(--muted); }
+    .plate { aspect-ratio: 4 / 5; border-radius: 2px; position: relative; overflow: hidden; }
+    .plate::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, transparent 0 6px, oklch(100% 0 0 / 0.04) 6px 7px); }
+    .plate.crust { background: repeating-linear-gradient(0deg, oklch(90% 0.02 80) 0 3px, oklch(87% 0.025 78) 3px 6px); }
+    .plate svg { display: block; }
+    .plate.flour { aspect-ratio: 16 / 9; background: radial-gradient(circle at 30% 60%, oklch(97% 0.01 90) 0 18%, transparent 19%), radial-gradient(circle at 62% 40%, oklch(93% 0.02 85) 0 24%, transparent 25%), linear-gradient(135deg, oklch(58% 0.06 55), oklch(40% 0.05 45)); }
+    .plate.oven { aspect-ratio: 16 / 9; background: radial-gradient(ellipse at 50% 85%, oklch(78% 0.17 60) 0 20%, oklch(55% 0.18 35) 21% 38%, oklch(22% 0.03 30) 60%); }
+    figcaption { font-family: system-ui, sans-serif; font-size: 13px; color: var(--muted); margin-top: 10px; }
+    article { display: grid; grid-template-columns: 220px minmax(0, 640px) 1fr; gap: 48px; padding: 24px 56px 80px; }
+    aside { font-family: system-ui, sans-serif; font-size: 13px; color: var(--muted); border-top: 2px solid var(--oxblood); padding-top: 14px; align-self: start; position: sticky; top: 24px; }
+    aside ol { padding-left: 18px; margin: 8px 0 0; }
+    .body p:first-of-type::first-letter { float: left; font-size: 74px; line-height: 0.85; padding: 6px 10px 0 0; color: var(--oxblood); }
+    h2 { font-size: 34px; font-weight: 400; letter-spacing: -0.01em; margin: 56px 0 12px; }
+    blockquote { margin: 40px 0; padding: 0 0 0 24px; border-left: 3px solid var(--oxblood); font-size: 28px; line-height: 1.3; }
+    table { width: 100%; border-collapse: collapse; font-family: system-ui, sans-serif; font-size: 14px; font-variant-numeric: tabular-nums; margin: 24px 0; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--rule); }
+    th { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    figure { margin: 40px 0; }
+    footer { padding: 40px 56px; border-top: 1px solid var(--rule); font-family: system-ui, sans-serif; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <header class="mast">
+    <strong>Hearth Quarterly</strong>
+    <nav><a href="#">Essays</a><a href="#">Recipes</a><a href="#">Makers</a><a href="#">Archive</a></nav>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Issue 14 · Long read</div>
+      <h1>Field Notes on Slow Bread</h1>
+      <p class="dek">Wild yeast, patient dough, and the bakers keeping a slower craft alive in a fast-proof world.</p>
+      <div class="byline">By Mara Okafor · Photographs by Teo Lindqvist · 18 min read</div>
+    </div>
+    <figure style="margin:0">
+      <div class="plate crust" role="img" aria-label="A scored country loaf on linen">
+        <svg viewBox="0 0 400 500" width="100%" height="100%" aria-hidden="true">
+          <defs>
+            <radialGradient id="crust" cx="45%" cy="40%" r="65%">
+              <stop offset="0" stop-color="oklch(74% 0.12 70)"/>
+              <stop offset="0.55" stop-color="oklch(55% 0.13 52)"/>
+              <stop offset="1" stop-color="oklch(32% 0.08 40)"/>
+            </radialGradient>
+            <linearGradient id="ear" x1="0" x2="1">
+              <stop offset="0" stop-color="oklch(88% 0.06 85)"/>
+              <stop offset="1" stop-color="oklch(70% 0.1 70)"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="200" cy="380" rx="170" ry="26" fill="oklch(40% 0.03 60 / 0.25)"/>
+          <path d="M40 300 C 40 170, 120 120, 200 120 C 290 120, 362 175, 362 300 C 362 350, 300 380, 200 380 C 100 380, 40 352, 40 300 Z" fill="url(#crust)"/>
+          <path d="M95 250 C 150 175, 250 165, 318 230 C 260 200, 160 205, 95 250 Z" fill="url(#ear)"/>
+          <g fill="oklch(97% 0.01 90 / 0.55)">
+            <circle cx="150" cy="170" r="3"/><circle cx="230" cy="150" r="2"/><circle cx="270" cy="185" r="3"/>
+            <circle cx="120" cy="215" r="2"/><circle cx="300" cy="260" r="2.5"/><circle cx="190" cy="160" r="2"/>
+          </g>
+        </svg>
+      </div>
+      <figcaption>A country loaf after a 36-hour cold ferment.</figcaption>
+    </figure>
+  </section>
+
+  <article>
+    <aside>
+      In this piece
+      <ol><li>The starter</li><li>Time as an ingredient</li><li>The numbers</li><li>The oven</li></ol>
+    </aside>
+    <div class="body">
+      <p>Before sunrise in a converted tannery outside Asheville, the only sound is the hum of a walk-in cooler and the soft slap of dough meeting wood. Joan Pereira has been folding the same starter for nineteen years. She calls it Augustine, and she will tell you, unprompted, that it is older than her marriage.</p>
+      <p>Slow bread is less a recipe than a schedule. Flour, water, and salt do most of the talking; the baker's real job is deciding when to stay out of the way. A long, cold proof lets enzymes break starches into sugars the yeast can work with, and lets bacteria build the acids that give a loaf its depth.</p>
+
+      <h2>The starter</h2>
+      <p>Every starter is a small ecosystem. Wild yeasts and lactic acid bacteria arrive on the flour and in the air, and the ones that thrive at a bakery's particular temperature and feeding rhythm become its signature. Move a starter across the country and, within weeks, it starts to taste of its new kitchen.</p>
+      <figure>
+        <div class="plate flour" role="img" aria-label="Flour dusted across a wooden bench"></div>
+        <figcaption>Morning bench work: pre-shaping two hundred loaves takes about forty minutes.</figcaption>
+      </figure>
+
+      <h2>Time as an ingredient</h2>
+      <p>Commercial bread can go from bag to shelf in under three hours. Pereira's takes three days. The difference shows up in flavor, in keeping quality, and, some bakers argue, in how easily the bread is digested.</p>
+      <blockquote>“You can't rush the dough. You can only schedule your life around it.”</blockquote>
+      <p>That schedule is unforgiving. A warm afternoon can over-proof a whole batch; a cold snap can leave it sluggish. The bakers who last are the ones who learn to read the dough rather than the clock.</p>
+
+      <h2>The numbers</h2>
+      <table>
+        <thead><tr><th>Stage</th><th>Time</th><th>Temp</th><th>Hydration</th></tr></thead>
+        <tbody>
+          <tr><td>Levain build</td><td>8 h</td><td>24 °C</td><td>100%</td></tr>
+          <tr><td>Autolyse</td><td>1 h</td><td>24 °C</td><td>75%</td></tr>
+          <tr><td>Bulk ferment</td><td>4 h</td><td>26 °C</td><td>78%</td></tr>
+          <tr><td>Cold retard</td><td>36 h</td><td>4 °C</td><td>78%</td></tr>
+          <tr><td>Bake</td><td>45 min</td><td>250 °C</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <h2>The oven</h2>
+      <figure>
+        <div class="plate oven" role="img" aria-label="The glowing mouth of a wood-fired oven"></div>
+        <figcaption>The oven holds heat for eleven hours after the fire is raked out.</figcaption>
+      </figure>
+      <p>The final hour belongs to fire. Loaves go in at 250 °C onto stone that has soaked up heat overnight, and steam keeps the crust supple long enough for the bread to bloom. When the crackle starts as the loaves cool, Pereira says, that is the bread talking back.</p>
+
+      <h2>The people</h2>
+      <p>Pereira employs six bakers, and none of them trained in a culinary school. Two came from carpentry, one from nursing, one from a decade of night shifts at a distribution center. She looks for patience and steady hands, and teaches the rest at the bench, one fold at a time.</p>
+      <p>The work is physical and the hours are strange. Shifts start at three in the morning and end before most offices open. What keeps people, she says, is the feedback: by the end of every shift there is something real on the racks, and by lunch it is gone.</p>
+      <blockquote>“Bread is the only job I've had where you can see the whole thing finished before noon.”</blockquote>
+      <p>The bakery sells out most days by early afternoon. Pereira has resisted every suggestion to scale up, open a second shop, or sell to grocery chains. Doubling the output, she argues, would mean doubling the speed, and speed is the one thing the dough will not forgive.</p>
+      <p>By seven the first customers are at the door. Most of them have no idea the loaf they are buying was started on Tuesday.</p>
+    </div>
+  </article>
+
+  <footer><span>© 2026 Hearth Quarterly</span><span>Subscribe · Contact · Privacy</span></footer>
+</body>
+</html>

@@ -3,8 +3,14 @@
  * Orchestrates the full-page screenshot capture pipeline:
  *   1. Tells content script to measure page & start scrolling
  *   2. Captures each viewport via chrome.tabs.captureVisibleTab
- *   3. Holds result in memory for the viewer to fetch via messaging
+ *   3. Saves the finished capture to the extension's IndexedDB and opens the
+ *      viewer at viewer.html?id=<captureId>; the viewer reads it from there,
+ *      so results survive the service worker being stopped.
  */
+
+import './lib/capture-store.js';
+
+const CaptureStore = globalThis.PageGobblerCaptureStore;
 
 const DEFAULT_SETTINGS = {
   quality: 0.92,          // jpeg/webp quality
@@ -17,15 +23,15 @@ const DEFAULT_SETTINGS = {
 };
 
 let captureState = null;
-let lastCaptureResult = null; // holds completed capture for viewer to fetch
 let lastCaptureTime = 0;
 let captureClearTimer = null;
-let captureDataClearTimer = null;
-let nextCaptureId = 0;
 const MIN_CAPTURE_INTERVAL_MS = 550; // Chrome enforces 2 calls/sec max (500ms); add buffer
-const CAPTURE_DATA_TTL_MS = 10 * 60 * 1000;
 const ACTIVE_CAPTURE_PHASES = new Set(['measuring', 'capturing', 'processing']);
 const RESTRICTED_URL_PATTERN = /^(chrome|chrome-extension|edge|about|brave|vivaldi|opera):/i;
+
+// Drop stale captures every time the worker starts (it starts on demand, so
+// this runs regularly without timers that die with the worker).
+pruneStoredCaptures();
 
 // ── 1-Click Mode ────────────────────────────────────────────────────────────
 
@@ -59,19 +65,21 @@ chrome.action.onClicked.addListener((tab) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Handlers that call sendResponse need the channel kept open (return true)
   const asyncHandlers = {
-    'get-capture-data': () => handleGetCaptureData(sendResponse),
     'get-progress': () => handleGetProgress(sendResponse),
     'get-settings': () => handleGetSettings(sendResponse),
     'save-settings': () => handleSaveSettings(msg.settings, sendResponse),
     'start-capture': () => handleStartCapture(msg.tabId ?? sender.tab?.id)
       .then(sendResponse)
       .catch((err) => sendResponse({ ok: false, error: err.message })),
+    // Answered only once the capture is saved: the open channel keeps the
+    // service worker alive through image conversion and the IndexedDB write.
+    'capture-complete': () => handleCaptureComplete(msg, sender)
+      .finally(() => sendResponse({ ok: true })),
   };
 
   // Fire-and-forget handlers — no sendResponse needed
   const fireHandlers = {
     'capture-viewport': () => handleCaptureViewport(msg, sender),
-    'capture-complete': () => handleCaptureComplete(msg, sender),
   };
 
   if (asyncHandlers[msg.action]) {
@@ -106,6 +114,12 @@ async function handleStartCapture(tabId) {
     return markStartFailed('Chrome blocks capture on browser/internal pages.');
   }
 
+  // Captures are saved to the extension's IndexedDB, which incognito tabs
+  // share with regular browsing (default spanning mode). Leave no tracks.
+  if (tab.incognito) {
+    return markStartFailed('PageGobbler does not capture incognito tabs, so nothing from them is stored.');
+  }
+
   // Badge: show capturing state
   chrome.action.setBadgeTextColor({ color: '#1a1008' });
   chrome.action.setBadgeBackgroundColor({ color: '#D4762C' });
@@ -113,7 +127,7 @@ async function handleStartCapture(tabId) {
 
   const settings = await loadSettings();
   clearTimeout(captureClearTimer);
-  const captureId = ++nextCaptureId;
+  const captureId = CaptureStore.createCaptureId();
   captureState = {
     captureId,
     tabId,
@@ -135,16 +149,24 @@ async function handleStartCapture(tabId) {
     // The content script may already be injected. We confirm by messaging below.
   }
 
+  // The content script lives in an isolated world and cannot see the page's
+  // own console calls, so wrap console.* in the page's MAIN world for the
+  // duration of this capture. Entries are relayed back over window.postMessage
+  // on a per-capture channel token; the content script restores the originals.
+  const consoleToken = await installPageConsoleHook(tabId);
+
   try {
     const response = await chrome.tabs.sendMessage(tabId, {
       action: 'begin-scroll-capture',
       settings,
+      consoleToken,
     });
     if (response?.ok === false) {
       throw new Error(response.error || 'Page rejected the capture request.');
     }
   } catch (err) {
     captureState = null;
+    if (consoleToken) removePageConsoleHook(tabId, consoleToken);
     return markStartFailed(
       err?.message?.includes('Receiving end does not exist')
         ? 'Could not inject PageGobbler into this page.'
@@ -210,34 +232,49 @@ async function handleCaptureComplete(msg, sender) {
   const { captures, settings } = captureState;
   const pageInfo = msg.pageInfo;
 
+  // Every viewport is in hand: restore the page (scroll position, sticky
+  // elements, overflow) now rather than after the slower storage work.
+  chrome.tabs.sendMessage(tabId, { action: 'capture-done' }).catch(() => {});
+
   try {
-    // Hold result in memory — viewer fetches via 'get-capture-data' message
-    lastCaptureResult = {
-      captures: captures.map(c => ({
-        dataUrl: c.dataUrl,
+    const captureId = captureState.captureId;
+    const createdAt = Date.now();
+    // Convert one viewport at a time and drop each data URL once its Blob
+    // exists, so a tall page never holds every base64 copy at once.
+    const storedCaptures = [];
+    for (const c of captures) {
+      const image = await storableImage(c.dataUrl);
+      c.dataUrl = null;
+      storedCaptures.push({
+        ...image,
         scrollY: c.scrollY,
         viewportHeight: c.viewportHeight,
         clipHeight: c.clipHeight,
         index: c.index,
-      })),
+      });
+    }
+    const record = {
+      id: captureId,
+      createdAt,
+      captures: storedCaptures,
       pageInfo,
       settings,
-      timestamp: Date.now(),
-      elapsedMs: Date.now() - captureState.startTime,
+      timestamp: createdAt,
+      elapsedMs: createdAt - captureState.startTime,
     };
-    scheduleCaptureDataCleanup(lastCaptureResult.timestamp);
+
+    // Persist before opening the viewer: it reads straight from IndexedDB.
+    await CaptureStore.saveCapture(record);
+    captureState.captures = [];
+    await pruneStoredCaptures();
 
     // Signal done so the popup can show completion if it is still open
     captureState.phase = 'done';
 
-    // Open viewer — it will request the data via messaging
     await chrome.tabs.create({
-      url: chrome.runtime.getURL('viewer/viewer.html'),
+      url: chrome.runtime.getURL(`viewer/viewer.html?id=${encodeURIComponent(captureId)}`),
       active: true,
     });
-
-    // Tell content script we're done — restore page state
-    chrome.tabs.sendMessage(tabId, { action: 'capture-done' });
 
     // Badge: brief success indicator
     chrome.action.setBadgeTextColor({ color: '#1a1008' });
@@ -250,7 +287,6 @@ async function handleCaptureComplete(msg, sender) {
       captureState.phase = 'error';
       captureState.error = err.message;
     }
-    chrome.tabs.sendMessage(tabId, { action: 'capture-error', error: err.message });
     chrome.action.setBadgeTextColor({ color: '#F5E6D0' });
     chrome.action.setBadgeBackgroundColor({ color: '#C0392B' });
     chrome.action.setBadgeText({ text: 'X' });
@@ -293,19 +329,245 @@ function markStartFailed(message) {
   return { ok: false, error: message };
 }
 
-// ── Capture Data Handoff ─────────────────────────────────────────────────────
+// ── Capture Storage ──────────────────────────────────────────────────────────
 
-function handleGetCaptureData(sendResponse) {
-  sendResponse({ captureData: lastCaptureResult });
+// Screenshots arrive as PNG data URLs; store them as Blobs (about 25% smaller
+// than base64 and cheap for IndexedDB). Fall back to the data URL if needed.
+async function storableImage(dataUrl) {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    return { blob };
+  } catch (_) {
+    return { dataUrl };
+  }
 }
 
-function scheduleCaptureDataCleanup(timestamp) {
-  clearTimeout(captureDataClearTimer);
-  captureDataClearTimer = setTimeout(() => {
-    if (lastCaptureResult?.timestamp === timestamp) {
-      lastCaptureResult = null;
+async function pruneStoredCaptures() {
+  try {
+    await CaptureStore.pruneCaptures();
+  } catch (err) {
+    console.warn('PageGobbler: could not prune stored captures:', err);
+  }
+}
+
+// ── Page Console Relay ───────────────────────────────────────────────────────
+
+async function installPageConsoleHook(tabId) {
+  const token = `pagegobbler-console-${CaptureStore.createCaptureId()}`;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: pageConsoleHook,
+      args: [token],
+    });
+    return token;
+  } catch (err) {
+    // Console capture is best-effort; the screenshot still works without it.
+    console.warn('PageGobbler: console capture unavailable on this page:', err);
+    return null;
+  }
+}
+
+// Used when the capture never starts, so the content script never stops the hook.
+function removePageConsoleHook(tabId, token) {
+  chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: (channel) => window.postMessage({ channel, type: 'stop' }, '*'),
+    args: [token],
+  }).catch(() => { /* the hook's own safety timeout still restores the console */ });
+}
+
+/**
+ * Runs in the page's MAIN world (serialized by chrome.scripting, so it must
+ * be self-contained). Wraps console methods and error events until the
+ * content script posts {type: 'stop'} on the same token, then restores the
+ * originals and acknowledges with {type: 'stopped'}.
+ */
+function pageConsoleHook(token) {
+  const STATE_KEY = Symbol.for('pagegobbler.consoleHook');
+  const METHODS = ['log', 'info', 'warn', 'error', 'debug'];
+  const MAX_ENTRIES = 200;
+  const MAX_MESSAGE_CHARS = 4000;
+  const SAFETY_TIMEOUT_MS = 5 * 60 * 1000;
+
+  // A previous capture that never stopped cleanly: restore it first.
+  const previous = window[STATE_KEY];
+  if (previous && typeof previous.restore === 'function') previous.restore();
+
+  const originals = {};
+  const wrappers = {};
+  let sent = 0;
+  let active = true;
+
+  // Like the DevTools console, never run page getters or walk a whole object
+  // graph: show own data properties only, a few levels deep, within a budget.
+  const MAX_DEPTH = 3;
+  const MAX_KEYS = 20;
+  // Object.prototype.toString would run a Symbol.toStringTag getter; read the
+  // constructor's name through descriptors instead.
+  const dataValue = (target, key) => {
+    const desc = target && Object.getOwnPropertyDescriptor(target, key);
+    return desc && 'value' in desc ? desc.value : undefined;
+  };
+  const constructorName = (value) => {
+    const ctor = dataValue(Object.getPrototypeOf(value), 'constructor');
+    const name = typeof ctor === 'function' ? dataValue(ctor, 'name') : '';
+    return typeof name === 'string' && name ? name : 'Object';
+  };
+
+  const preview = (value, depth, seen) => {
+    // String(fn) could run a page-defined toString or Symbol.toPrimitive.
+    if (typeof value === 'function') {
+      const name = dataValue(value, 'name');
+      return typeof name === 'string' && name ? `[Function: ${name}]` : '[Function]';
     }
-  }, CAPTURE_DATA_TTL_MS);
+    if (value === null || typeof value !== 'object') {
+      return typeof value === 'string' ? JSON.stringify(value) : String(value);
+    }
+    if (seen.has(value)) return '[Circular]';
+    const tag = Array.isArray(value) ? 'Array' : constructorName(value);
+    if (depth >= MAX_DEPTH) return Array.isArray(value) ? `Array(${value.length})` : `[${tag}]`;
+    seen.add(value);
+    // Show at most MAX_KEYS entries. Arrays are read by index; objects list
+    // own keys only (for...in would also enumerate the whole prototype chain).
+    let keys;
+    if (Array.isArray(value)) {
+      keys = [];
+      for (let i = 0; i < Math.min(value.length, MAX_KEYS); i += 1) keys.push(String(i));
+    } else {
+      keys = Object.keys(value);
+    }
+    const more = (Array.isArray(value) ? value.length : keys.length) - MAX_KEYS;
+    const parts = keys.slice(0, MAX_KEYS).map((key) => {
+      const desc = Object.getOwnPropertyDescriptor(value, key);
+      const shown = desc && 'value' in desc ? preview(desc.value, depth + 1, seen) : '[Getter]';
+      return Array.isArray(value) ? shown : `${key}: ${shown}`;
+    });
+    if (more > 0) parts.push(`… ${more} more`);
+    seen.delete(value);
+    return Array.isArray(value) ? `[${parts.join(', ')}]` : `${tag === 'Object' ? '' : `${tag} `}{${parts.join(', ')}}`;
+  };
+
+  // Errors carry V8's native `stack` accessor; run only that one, never a
+  // getter the page defined, and read name and message as data properties.
+  const NATIVE_STACK_GETTER = (() => {
+    try {
+      return Object.getOwnPropertyDescriptor(new Error(), 'stack')?.get;
+    } catch (_) {
+      return undefined;
+    }
+  })();
+  const inheritedDataValue = (target, key) => {
+    for (let obj = target, hops = 0; obj && hops < 32; obj = Object.getPrototypeOf(obj), hops += 1) {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      if (desc) return 'value' in desc ? desc.value : undefined;
+    }
+    return undefined;
+  };
+  const describeError = (error) => {
+    const desc = Object.getOwnPropertyDescriptor(error, 'stack');
+    let stack;
+    if (desc && 'value' in desc) stack = desc.value;
+    else if (desc && desc.get && desc.get === NATIVE_STACK_GETTER) stack = desc.get.call(error);
+    if (typeof stack === 'string' && stack) return stack;
+    const name = inheritedDataValue(error, 'name');
+    const message = inheritedDataValue(error, 'message');
+    return `${typeof name === 'string' && name ? name : 'Error'}: ${typeof message === 'string' ? message : ''}`;
+  };
+
+  const describe = (value) => {
+    if (typeof value === 'string') return value;
+    try {
+      if (value instanceof Error) return describeError(value);
+      return preview(value, 0, new Set());
+    } catch (_) {
+      return '[Unpreviewable]';
+    }
+  };
+
+  const relay = (level, message) => {
+    if (!active || sent >= MAX_ENTRIES) return;
+    sent += 1;
+    try {
+      window.postMessage({
+        channel: token,
+        type: 'entry',
+        entry: {
+          level,
+          timestamp: new Date().toISOString(),
+          message: String(message).slice(0, MAX_MESSAGE_CHARS),
+        },
+      }, '*');
+    } catch (_) { /* never break the page's logging */ }
+  };
+
+  try {
+    METHODS.forEach((method) => {
+      const original = console[method];
+      if (typeof original !== 'function') return;
+      originals[method] = original;
+      wrappers[method] = function pageGobblerConsole(...args) {
+        try {
+          relay(method, args.map(describe).join(' '));
+        } catch (_) { /* never break the page's logging */ }
+        return original.apply(this, args);
+      };
+      console[method] = wrappers[method];
+    });
+  } catch (err) {
+    // A page setter refused one method: undo the ones already wrapped, since
+    // no stop message or safety timer exists yet to do it later.
+    active = false;
+    Object.keys(wrappers).forEach((method) => {
+      try {
+        if (console[method] === wrappers[method]) console[method] = originals[method];
+      } catch (_) { /* leave it; the wrapper is inert once inactive */ }
+    });
+    throw err;
+  }
+
+  const onError = (event) => {
+    relay('uncaught-error', `${event.message} at ${event.filename}:${event.lineno}:${event.colno}`);
+  };
+  const onRejection = (event) => relay('unhandled-rejection', describe(event.reason));
+  window.addEventListener('error', onError);
+  window.addEventListener('unhandledrejection', onRejection);
+
+  const safetyTimer = setTimeout(() => restore(), SAFETY_TIMEOUT_MS);
+
+  function restore() {
+    if (!active) return;
+    active = false;
+    clearTimeout(safetyTimer);
+    // Only undo our own wrapper; keep any replacement the page made since.
+    Object.keys(originals).forEach((method) => {
+      if (console[method] === wrappers[method]) console[method] = originals[method];
+    });
+    window.removeEventListener('error', onError);
+    window.removeEventListener('unhandledrejection', onRejection);
+    window.removeEventListener('message', onControl);
+    if (window[STATE_KEY] === state) delete window[STATE_KEY];
+  }
+
+  function onControl(event) {
+    if (event.source !== window || !event.data || event.data.channel !== token) return;
+    if (event.data.type !== 'stop') return;
+    restore();
+    window.postMessage({ channel: token, type: 'stopped' }, '*');
+  }
+
+  const state = { restore };
+  try {
+    Object.defineProperty(window, STATE_KEY, { value: state, configurable: true });
+    window.addEventListener('message', onControl);
+  } catch (err) {
+    // The worker gets no token back on failure, so nothing could stop the
+    // hook later: undo everything installed above now.
+    restore();
+    throw err;
+  }
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────
