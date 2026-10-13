@@ -252,7 +252,10 @@
     // Feeds that virtualize (drop early rows as new ones load) are left with
     // only the bottom of the feed in the DOM; keep the first snapshot there
     // rather than lose the top of the page from the exports.
-    const grew = measurePageHeight() > initialPageHeight;
+    // Re-measure: content can load after the last scroll step (for example
+    // while the console hook is restored), and the exports should say so.
+    fullPageHeight = Math.max(fullPageHeight, measurePageHeight());
+    const grew = fullPageHeight > initialPageHeight;
     if (grew) {
       restoreFixedElements();
       const fresh = collectPageInfo();
